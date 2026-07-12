@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generator Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080808; --panel:#141414; --border:#222; --dim:#555; --mid:#888;
+  --white:#f0f0f0; --acid:#f7931a; --acid-hover:#ffa733; --orange:#ff6b1a; --rare:#f7931a;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--white); font-family:'Space Grotesk',sans-serif; }
+
+header { padding:28px 24px 20px; border-bottom:1px solid var(--border); }
+.brand { font-family:'Space Mono',monospace; font-size:16px; font-weight:700; }
+.eyebrow { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:var(--orange); margin-top:14px; }
+.h1 { font-family:'Space Mono',monospace; font-size:clamp(28px,5vw,48px); font-weight:700; margin-top:8px; }
+.sub { font-size:13px; color:var(--mid); margin-top:8px; max-width:560px; line-height:1.6; }
+
+main { padding:32px 24px 60px; max-width:1120px; margin:0 auto; }
+.section-title { font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.15em; text-transform:uppercase; color:var(--acid); margin-bottom:16px; }
+
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
+
+.card {
+  background:var(--panel); border:1px solid var(--border); padding:20px;
+  text-decoration:none; color:inherit; display:block; transition:all .15s; position:relative;
+}
+.card.active:hover { border-color:var(--acid); transform:translateY(-2px); }
+.card.empty { opacity:.4; cursor:default; }
+
+.card-num { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.15em; text-transform:uppercase; color:var(--dim); }
+.card.active .card-num { color:var(--orange); }
+.card-name { font-family:'Space Mono',monospace; font-size:18px; font-weight:700; margin-top:8px; }
+.card-desc { font-size:12px; color:var(--mid); margin-top:8px; line-height:1.5; }
+.card-status {
+  display:inline-block; margin-top:14px; font-family:'Space Mono',monospace; font-size:10px;
+  letter-spacing:.1em; text-transform:uppercase; padding:4px 9px; border:1px solid var(--border);
+}
+.card.active .card-status { color:var(--acid); border-color:var(--acid); }
+.card.empty .card-status { color:var(--dim); }
+
+@media(max-width:600px) {
+  header { padding:22px 16px 16px; }
+  main { padding:24px 16px 40px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">CODEBORNHQ</div>
+  <div class="eyebrow">Generative Traits Engines</div>
+  <div class="h1">Built collections</div>
+  <div class="sub">Select as many specific traits as you want per category (or leave on random) set the supply size — it's not capped, you can generate upto 10,000. Nothing regenerates until you hit Generate. Click a piece to download the SVG or copy its markup.</div>
+</header>
+
+<main>
+  <div class="section-title">Generators</div>
+  <div class="grid" id="hub-grid"></div>
+</main>
+
+<script>
+const GENERATORS = [
+  { num: 1, active: true, name: 'Generator 1', desc: 'Characters, drifters, resisters — the working collection.' },
+  { num: 2, active: true, name: 'Generator 2', desc: 'Abstract interface Glyphs — fragmented, glitched, cold.' },
+  { num: 3, active: true, name: 'Generator 3', desc: 'Generative Ink Engine — procedural characters.' },
+  { num: 4, active: false, name: 'Generator 4', desc: 'Reserved for the next collection.' },
+  { num: 5, active: false, name: 'Generator 5', desc: 'Reserved for the next collection.' },
+  { num: 6, active: false, name: 'Generator 6', desc: 'Reserved for the next collection.' },
+  { num: 7, active: false, name: 'Generator 7', desc: 'Reserved for the next collection.' },
+  { num: 8, active: false, name: 'Generator 8', desc: 'Reserved for the next collection.' }
+];
+
+document.getElementById("hub-grid").innerHTML = GENERATORS.map(g => {
+  const tag = g.active ? 'a' : 'div';
+  const href = g.active ? `href="generator-${g.num}/index.html"` : '';
+  const cls = g.active ? 'card active' : 'card empty';
+  const status = g.active ? 'Open' : 'Empty';
+  return `<${tag} class="${cls}" ${href}>
+    <div class="card-num">№ ${String(g.num).padStart(2, '0')}</div>
+    <div class="card-name">${g.name}</div>
+    <div class="card-desc">${g.desc}</div>
+    <div class="card-status">${status}</div>
+  </${tag}>`;
+}).join('');
+</script>
+</body>
+</html>

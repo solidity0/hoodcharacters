@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chibi Character Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root { --bg:#080808; --panel:#141414; --border:#222; --dim:#555; --mid:#888; --white:#f0f0f0; --acid:#daf007; --acid-hover:#e8fa4d; --orange:#ff6b1a; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--white); font-family:'Space Grotesk',sans-serif; }
+header { padding:28px 24px 20px; border-bottom:1px solid var(--border); position:relative; }
+.hub-back { position:absolute; top:16px; right:24px; font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--mid); text-decoration:none; padding:6px 12px; border:1px solid var(--border); transition:all .15s; }
+.hub-back:hover { color:var(--acid); border-color:var(--acid); }
+.brand { font-family:'Space Mono',monospace; font-size:16px; font-weight:700; }
+.brand span { color:var(--acid); }
+.eyebrow { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:var(--orange); margin-top:14px; }
+.h1 { font-family:'Space Mono',monospace; font-size:clamp(28px,5vw,48px); font-weight:700; margin-top:8px; }
+.sub { font-size:13px; color:var(--mid); margin-top:8px; max-width:560px; line-height:1.6; }
+main { padding:24px; max-width:1280px; margin:0 auto; }
+.panel-section { margin-bottom:28px; }
+.panel-title { font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.15em; text-transform:uppercase; color:var(--acid); margin-bottom:14px; }
+.controls-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px; }
+.trait-group { background:var(--panel); border:1px solid var(--border); padding:12px; }
+.trait-label { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--mid); margin-bottom:8px; }
+.chip-row { display:flex; flex-wrap:wrap; gap:5px; }
+.chip { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.03em; padding:6px 10px; border:1px solid var(--border); background:var(--bg); color:var(--mid); cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:5px; -webkit-tap-highlight-color:transparent; }
+.chip:hover { border-color:var(--acid); color:var(--white); }
+.chip.active { background:var(--acid); color:#000; border-color:var(--acid); font-weight:700; }
+.chip .dot { width:9px; height:9px; border-radius:50%; border:1px solid rgba(255,255,255,.3); flex-shrink:0; }
+.run-row { display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:16px; background:var(--panel); border:1px solid var(--border); margin-top:6px; }
+.field { display:flex; align-items:center; gap:8px; }
+.field label { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--mid); }
+.field input { width:80px; background:var(--bg); border:1px solid var(--border); color:var(--white); font-family:'Space Mono',monospace; font-size:12px; padding:8px; outline:none; }
+.field input:focus { border-color:var(--acid); }
+.trait-group input[type="text"], .trait-group textarea { width:100%; background:var(--bg); border:1px solid var(--border); color:var(--white); font-family:'Space Mono',monospace; font-size:13px; padding:8px; outline:none; }
+.trait-group textarea { font-family:'Space Grotesk',sans-serif; resize:vertical; }
+.trait-group input[type="text"]:focus,.trait-group textarea:focus { border-color:var(--acid); }
+.trait-group input[type="text"]::placeholder,.trait-group textarea::placeholder { color:var(--dim); }
+.btn { font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; padding:10px 18px; cursor:pointer; border:none; -webkit-tap-highlight-color:transparent; transition:transform .1s; }
+.btn:active { transform:scale(0.97); }
+.btn-acid { background:var(--acid); color:#000; }
+.btn-acid:hover { background:var(--acid-hover); }
+.btn-ghost { background:transparent; color:var(--mid); border:1px solid var(--border); }
+.btn-ghost:hover { color:var(--white); border-color:var(--white); }
+.status-row { display:flex; align-items:center; justify-content:space-between; margin:18px 0 10px; flex-wrap:wrap; gap:8px; }
+.status-label { font-family:'Space Mono',monospace; font-size:11px; color:var(--mid); }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:6px; overflow-anchor:none; }
+.grid-viewport { position:relative; overflow-anchor:none; }
+#grid-spacer-top, #grid-spacer-bottom { width:100%; overflow-anchor:none; }
+.tile { background:var(--panel); border:1px solid var(--border); cursor:pointer; overflow:hidden; transition:border-color .15s; }
+.tile:hover { border-color:var(--acid); }
+.tile svg { display:block; width:100%; height:auto; }
+.tile-label { padding:5px 7px; font-family:'Space Mono',monospace; font-size:10px; color:var(--white); }
+.tile-label.is-1of1 { color:var(--acid); font-weight:700; }
+.lightbox { display:none; position:fixed; inset:0; z-index:300; background:rgba(0,0,0,.88); align-items:center; justify-content:center; padding:20px; }
+.lightbox.open { display:flex; }
+.lb-inner { background:var(--panel); border:1px solid var(--border); max-width:680px; width:100%; display:grid; grid-template-columns:1fr 1fr; align-items:start; max-height:88vh; overflow:auto; position:relative; }
+.lb-preview { background:#000; }
+.lb-preview svg { display:block; width:100%; }
+.lb-meta { padding:20px; display:flex; flex-direction:column; gap:12px; }
+.lb-title { font-family:'Space Mono',monospace; font-size:14px; color:var(--white); letter-spacing:.05em; }
+.lb-title.is-1of1 { color:var(--acid); }
+.lb-traits { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.lb-trait { background:var(--bg); border:1px solid var(--border); padding:8px 10px; }
+.lb-trait-k { font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); margin-bottom:2px; }
+.lb-trait-v { font-size:12px; font-weight:600; }
+.lb-close { position:absolute; top:8px; right:8px; background:var(--border); border:none; color:var(--white); width:26px; height:26px; cursor:pointer; }
+.lb-actions { display:flex; gap:8px; margin-top:auto; flex-wrap:wrap; }
+.toast { position:fixed; bottom:20px; right:20px; z-index:400; background:var(--panel); border:1px solid var(--border); border-left:3px solid var(--acid); padding:10px 16px; font-family:'Space Mono',monospace; font-size:11px; transform:translateY(60px); opacity:0; transition:all .3s; max-width:260px; }
+.toast.show { transform:translateY(0); opacity:1; }
+@media(max-width:600px) { .lb-inner { grid-template-columns:1fr; } header { padding:22px 16px 16px; } main { padding:16px; } .grid { grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); } }
+</style>
+</head>
+<body>
+<header>
+  <a href="../index.html" class="hub-back">&larr; Hub</a>
+  <div class="brand">Chibi <span>//</span> Generator</div>
+  <div class="eyebrow">Pixel Character Engine</div>
+  <div class="h1" id="h1-text">Build your collection</div>
+  <div class="sub">Blocky pixel-art chibi characters on a fixed lemon-green background. Lock specific traits or leave on random — nothing regenerates until you hit Generate.</div>
+</header>
+<main>
+  <div class="panel-section">
+    <div class="panel-title">Collection</div>
+    <div class="controls-grid">
+      <div class="trait-group"><div class="trait-label">Name</div><input type="text" id="collection-name-input" placeholder="Name your collection"></div>
+      <div class="trait-group"><div class="trait-label">Symbol (optional)</div><input type="text" id="collection-symbol-input" placeholder="e.g. CHIBI" maxlength="8" style="text-transform:uppercase;"></div>
+      <div class="trait-group">
+        <div class="trait-label">Chain</div>
+        <div class="chip-row" id="chain-controls">
+          <button class="chip" data-chain="bitcoin">bitcoin</button>
+          <button class="chip active" data-chain="ethereum">ethereum</button>
+        </div>
+      </div>
+      <div class="trait-group" style="grid-column:1/-1;"><div class="trait-label">Description (optional)</div><textarea id="collection-description-input" rows="2" placeholder="A short description for your collection metadata"></textarea></div>
+    </div>
+  </div>
+  <div class="panel-section">
+    <div class="panel-title">Artifact type</div>
+    <div class="chip-row" id="tier-controls" style="margin-bottom:6px;">
+      <button class="chip active" data-tier="any">any</button>
+      <button class="chip" data-tier="common"><span class="dot" style="background:var(--dim)"></span>common</button>
+      <button class="chip" data-tier="uncommon"><span class="dot" style="background:var(--orange)"></span>uncommon</button>
+      <button class="chip" data-tier="rare"><span class="dot" style="background:var(--acid)"></span>rare</button>
+    </div>
+    <div style="font-size:11px;color:var(--dim);">Biases every unlocked trait toward that rarity tier.</div>
+  </div>
+  <div class="panel-section">
+    <div class="panel-title">Traits</div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:10px;">Lock specific values per category, or leave on random.</div>
+    <div class="controls-grid" id="controls"></div>
+  </div>
+  <div class="run-row">
+    <div class="field"><label>Seed</label><input type="text" inputmode="numeric" id="seed-input" value="7"></div>
+    <div class="field"><label>Supply</label><input type="text" inputmode="numeric" id="count-input" value="24"></div>
+    <div class="field"><label>1/1</label><input type="text" inputmode="numeric" id="oneofone-input" value="2"></div>
+    <button class="chip" id="animate-toggle" title="Adds a seeded blink animation. Grid thumbnails stay static for performance; the lightbox and SVG export show the animation.">animate: off</button>
+    <button class="btn btn-acid" id="generate-btn">Generate</button>
+    <button class="btn btn-ghost" id="reroll-btn">Reroll seed</button>
+    <button class="btn btn-ghost" id="reset-btn">Reset traits</button>
+    <button class="btn btn-acid" id="download-batch-btn">Download batch (.zip)</button>
+    <button class="btn btn-ghost" id="csv-btn">Export trait sheet</button>
+  </div>
+  <div class="status-row"><span class="status-label" id="status-label"></span></div>
+  <div class="grid-viewport" id="grid-viewport">
+    <div id="grid-spacer-top"></div>
+    <div class="grid" id="grid"></div>
+    <div id="grid-spacer-bottom"></div>
+  </div>
+</main>
+<div class="lightbox" id="lightbox">
+  <div class="lb-inner">
+    <button class="lb-close" id="lb-close-btn">✕</button>
+    <div class="lb-preview" id="lb-preview"></div>
+    <div class="lb-meta">
+      <div class="lb-title" id="lb-title"></div>
+      <div class="lb-traits" id="lb-traits"></div>
+      <div class="lb-actions">
+        <button class="btn btn-acid" id="lb-download-png">Download PNG</button>
+        <button class="btn btn-ghost" id="lb-download">Download SVG</button>
+        <button class="btn btn-ghost" id="lb-copy">Copy markup</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<!-- ENGINE:START -->
+<!-- ENGINE:END -->
+<script>
+const G = window.ChibiGen;
+if (!G) {
+  document.body.innerHTML = '<div style="padding:40px;font-family:monospace;color:#e63e3e;background:#0a0a0a;min-height:100vh;">' +
+    '<h2>Engine failed to load (window.ChibiGen is undefined)</h2>' +
+    '<p style="color:#888;margin-top:12px;">The generator.js engine script did not attach to window. ' +
+    'Try opening this file directly in a browser tab (not a sandboxed preview) rather than downloading again.</p>' +
+    '</div>';
+  throw new Error('window.ChibiGen is undefined — engine did not attach.');
+}
+const GTRAITS = G.TRAITS;
+const gMulberry32 = G.mulberry32;
+const gWeightedPick = G.weightedPick;
+const gTierFallback = G.TIER_FALLBACK;
+const gPickByRarity = G.pickByRarity;
+const gShadeColor = G.shadeColor;
+const gChainThemes = G.CHAIN_THEMES;
+
+const locks = {};
+Object.keys(GTRAITS).forEach(k => locks[k] = []);
+let currentPieces = [], currentTier = 'any', currentChain = 'ethereum', currentAnimate = false;
+
+function getDisplayName() { return document.getElementById('collection-name-input').value.trim() || 'Untitled Collection'; }
+function getFileSafeName() { return (document.getElementById('collection-name-input').value.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')) || 'collection'; }
+function getSymbol() { return document.getElementById('collection-symbol-input').value.trim().toUpperCase(); }
+function getDescription() { return document.getElementById('collection-description-input').value.trim(); }
+
+function formatWithCommas(n) { return Number.isFinite(+n) ? (+n).toLocaleString('en-US') : ''; }
+function parseFormattedInt(s) { return parseInt(String(s).replace(/,/g,''),10); }
+function attachComma(inp) {
+  inp.addEventListener('input',()=>{
+    const raw=inp.value, c=inp.selectionStart||raw.length;
+    const digs=raw.slice(0,c).replace(/\D/g,'').length;
+    const only=raw.replace(/\D/g,'');
+    const fmt=only===''?'':formatWithCommas(only);
+    inp.value=fmt;
+    let seen=0,pos=fmt.length;
+    for(let i=0;i<fmt.length;i++){if(/\d/.test(fmt[i]))seen++;if(seen>=digs){pos=i+1;break;}}
+    inp.setSelectionRange(pos,pos);
+  });
+}
+
+function applyChainTheme(chain) {
+  const c=gChainThemes[chain]||gChainThemes.ethereum;
+  document.documentElement.style.setProperty('--acid',c);
+  document.documentElement.style.setProperty('--acid-hover',gShadeColor(c,18));
+}
+
+function pickTrait(rng,key,tierOverride) {
+  const sel=locks[key], pool=GTRAITS[key];
+  if(sel&&sel.length){const sub=pool.filter(p=>sel.includes(p.id));if(sub.length)return gWeightedPick(rng,sub);}
+  const tier=tierOverride||currentTier;
+  if(tier!=='any'){const order=gTierFallback[tier]||['common','uncommon','rare'];for(const t of order){const sub=pool.filter(p=>p.rarity===t);if(sub.length)return gWeightedPick(rng,sub);}}
+  return gWeightedPick(rng,pool);
+}
+
+function generateOne(index,seed,opts) {
+  const tierOverride=opts&&opts.tierOverride, isOneOfOne=!!(opts&&opts.isOneOfOne);
+  const rng=gMulberry32((seed|0)*100003+index);
+  const skinTone=pickTrait(rng,'skinTone',tierOverride);
+  const hairColorLocked=!!(locks.hairColor&&locks.hairColor.length);
+  const hairColor=(isOneOfOne && !hairColorLocked) ? G.pickOneOfOneHairColor(rng) : pickTrait(rng,'hairColor',tierOverride);
+  const hairStyle=pickTrait(rng,'hairStyle',tierOverride);
+  const outfitType=pickTrait(rng,'outfitType',tierOverride);
+  const outfitColor=pickTrait(rng,'outfitColor',tierOverride);
+  const eyeStyle=pickTrait(rng,'eyeStyle',tierOverride);
+  const accessory=pickTrait(rng,'accessory',tierOverride);
+
+  const picks={skinTone,hairColor,hairStyle,outfitType,outfitColor,eyeStyle,accessory};
+  return { index, picks, svg:null, isOneOfOne, seed,
+    traits:{skinTone:skinTone.id,hairColor:hairColor.id,hairStyle:hairStyle.id,outfitType:outfitType.id,outfitColor:outfitColor.id,eyeStyle:eyeStyle.id,accessory:accessory.id},
+    rarity:{skinTone:skinTone.rarity,hairColor:hairColor.rarity,hairStyle:hairStyle.rarity,outfitType:outfitType.rarity,outfitColor:outfitColor.rarity,eyeStyle:eyeStyle.rarity,accessory:accessory.rarity},
+    tier:tierOverride||currentTier };
+}
+
+const _svgCacheOrder = [];
+const SVG_CACHE_LIMIT = 400;
+function ensureSVG(p) {
+  if(!p.svg){
+    p.svg = G.renderFromTraits(p.picks, p.index, p.seed, {});
+    _svgCacheOrder.push(p);
+    if(_svgCacheOrder.length > SVG_CACHE_LIMIT){
+      const evict = _svgCacheOrder.shift();
+      if(evict !== p) evict.svg = null;
+    }
+  }
+  return p.svg;
+}
+function getDisplaySVG(p) {
+  if(!currentAnimate) return ensureSVG(p);
+  return G.renderFromTraits(p.picks, p.index, p.seed, { animate: true });
+}
+
+const CATEGORY_META=[
+  {key:'skinTone',label:'Skin tone',swatch:'hex'},{key:'hairColor',label:'Hair color',swatch:'hex'},
+  {key:'hairStyle',label:'Hair style'},{key:'outfitType',label:'Outfit'},
+  {key:'outfitColor',label:'Outfit color',swatch:'hex'},{key:'eyeStyle',label:'Eyes'},
+  {key:'accessory',label:'Accessory'}
+];
+function rarityColor(r){return r==='rare'?'var(--acid)':r==='uncommon'?'var(--orange)':'var(--dim)';}
+function buildControls(){
+  document.getElementById('controls').innerHTML=CATEGORY_META.map(m=>{
+    const pool=GTRAITS[m.key];
+    const chips=pool.map(t=>{
+      const dot=m.swatch?`<span class="dot" style="background:${t[m.swatch]}"></span>`:'';
+      const rdot=`<span class="dot" style="background:${rarityColor(t.rarity)}" title="${t.rarity}"></span>`;
+      return `<button class="chip" data-key="${m.key}" data-id="${t.id}">${dot}${rdot}${t.id.replace(/_/g,' ')}</button>`;
+    }).join('');
+    return `<div class="trait-group"><div class="trait-label">${m.label}</div><div class="chip-row"><button class="chip active" data-key="${m.key}" data-id="">random</button>${chips}</div></div>`;
+  }).join('');
+}
+
+let _renderGen=0, _isRendering=false;
+let _columns=1, _rowHeight=200, _totalCount=0;
+let _scrollHandler=null, _resizeHandler=null;
+
+function render(){
+  const myGen=++_renderGen;
+  _svgCacheOrder.length=0;
+  const seed=parseFormattedInt(document.getElementById('seed-input').value)||0;
+  let count=parseFormattedInt(document.getElementById('count-input').value);
+  if(!count||count<1)count=1;
+  document.getElementById('count-input').value=formatWithCommas(count);
+  let ooCount=parseFormattedInt(document.getElementById('oneofone-input').value)||0;
+  if(ooCount>count)ooCount=count;
+  document.getElementById('oneofone-input').value=formatWithCommas(ooCount);
+
+  const pieces=new Array(count); currentPieces=pieces; _isRendering=true; _totalCount=count;
+  const grid=document.getElementById('grid');
+  const spacerTop=document.getElementById('grid-spacer-top');
+  const spacerBottom=document.getElementById('grid-spacer-bottom');
+  grid.innerHTML=''; spacerTop.style.height='0px'; spacerBottom.style.height='0px';
+
+  const baseLabel=count+' generated · seed '+seed+(currentTier!=='any'?' · '+currentTier:'')+(ooCount>0?' · '+ooCount+' 1/1':'');
+  document.getElementById('status-label').textContent=baseLabel;
+
+  const usedCombos=new Set(), usedCores=new Set();
+  function generateOneOfOne(pi,seed){
+    let best=null,bestScore=0,last=null;
+    for(let attempt=0;attempt<300;attempt++){
+      const p=generateOne(pi+attempt*10000000,seed,{tierOverride:'rare',isOneOfOne:true});
+      last=p; const ck=JSON.stringify(p.traits);
+      if(usedCombos.has(ck))continue;
+      const score=usedCores.has(p.traits.hairColor)?1:3;
+      if(score>bestScore){best=p;bestScore=score;}
+      if(bestScore>=3)break;
+    }
+    const piece=best||last;
+    usedCombos.add(JSON.stringify(piece.traits)); usedCores.add(piece.traits.hairColor);
+    piece.index=pi; return piece;
+  }
+
+  const PICK_CHUNK=1500; let idx=0;
+  function pickChunk(){
+    if(myGen!==_renderGen)return;
+    const end=Math.min(idx+PICK_CHUNK,count);
+    for(;idx<end;idx++) pieces[idx]=idx<ooCount?generateOneOfOne(idx+1,seed):generateOne(idx+1,seed);
+    if(idx<count){
+      if(count>2000) document.getElementById('status-label').textContent=baseLabel+' — picking traits '+idx+'/'+count;
+      requestAnimationFrame(pickChunk);
+    } else {
+      document.getElementById('status-label').textContent=baseLabel;
+      _isRendering=false;
+      setupVirtualGrid(myGen);
+    }
+  }
+  requestAnimationFrame(pickChunk);
+}
+
+function setupVirtualGrid(myGen){
+  if(myGen!==_renderGen)return;
+  const grid=document.getElementById('grid');
+  const viewport=document.getElementById('grid-viewport');
+  const spacerTop=document.getElementById('grid-spacer-top');
+  const spacerBottom=document.getElementById('grid-spacer-bottom');
+  const BUFFER_ROWS=3;
+
+  function measure(){
+    const probeCount=Math.min(_totalCount, 12);
+    let html='';
+    for(let i=0;i<probeCount;i++) html+=`<div class="tile" data-idx="${i}">${ensureSVG(currentPieces[i])}<div class="tile-label">#${currentPieces[i].index}</div></div>`;
+    grid.innerHTML=html;
+    const cols=getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length;
+    _columns=Math.max(1,cols);
+    const firstTile=grid.querySelector('.tile');
+    const gap=6;
+    _rowHeight=firstTile?(firstTile.getBoundingClientRect().height+gap):220;
+  }
+  measure();
+
+  let _lastStartIdx=-1, _lastEndIdx=-1;
+  function renderVisible(){
+    if(myGen!==_renderGen)return;
+    const rect=viewport.getBoundingClientRect();
+    const winH=window.innerHeight||800;
+    const totalRows=Math.ceil(_totalCount/_columns);
+    const scrolledIntoGrid=Math.max(0,-rect.top);
+
+    let startRow=Math.max(0, Math.floor(scrolledIntoGrid/_rowHeight)-BUFFER_ROWS);
+    const visibleSpan=winH+_rowHeight*BUFFER_ROWS*2;
+    let endRow=Math.min(totalRows, Math.ceil((scrolledIntoGrid+visibleSpan)/_rowHeight));
+    if(rect.top>winH){ startRow=0; endRow=Math.min(totalRows,BUFFER_ROWS*2); }
+    if(rect.bottom<0){ startRow=totalRows; endRow=totalRows; }
+
+    const startIdx=startRow*_columns;
+    const endIdx=Math.min(_totalCount, endRow*_columns);
+
+    if(startIdx===_lastStartIdx && endIdx===_lastEndIdx) return;
+    _lastStartIdx=startIdx; _lastEndIdx=endIdx;
+
+    spacerTop.style.height=(startRow*_rowHeight)+'px';
+    spacerBottom.style.height=Math.max(0,(totalRows-endRow)*_rowHeight)+'px';
+
+    let html='';
+    for(let i=startIdx;i<endIdx;i++){
+      const p=currentPieces[i];
+      const lc=p.isOneOfOne?'tile-label is-1of1':'tile-label';
+      html+=`<div class="tile" data-idx="${i}">${ensureSVG(p)}<div class="${lc}">#${p.index}</div></div>`;
+    }
+    grid.innerHTML=html;
+  }
+
+  if(_scrollHandler) window.removeEventListener('scroll',_scrollHandler);
+  if(_resizeHandler) window.removeEventListener('resize',_resizeHandler);
+  let ticking=false;
+  _scrollHandler=()=>{ if(!ticking){ticking=true; requestAnimationFrame(()=>{renderVisible();ticking=false;});} };
+  let _lastWidth = window.innerWidth;
+  _resizeHandler=()=>{
+    if(window.innerWidth !== _lastWidth){ _lastWidth = window.innerWidth; measure(); }
+    renderVisible();
+  };
+  window.addEventListener('scroll',_scrollHandler,{passive:true});
+  window.addEventListener('resize',_resizeHandler);
+  renderVisible();
+}
+
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window._tt);window._tt=setTimeout(()=>t.classList.remove('show'),2600);}
+function downloadSVG(p){const svg=getDisplaySVG(p);const b=new Blob([svg],{type:'image/svg+xml'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=getFileSafeName()+'-'+p.index+'.svg';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);showToast('SVG downloaded');}
+function svgToPngBlob(svgString,size){return new Promise((res,rej)=>{try{const b=new Blob([svgString],{type:'image/svg+xml'});const u=URL.createObjectURL(b);const img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=size;c.height=size;const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.drawImage(img,0,0,size,size);URL.revokeObjectURL(u);c.toBlob(blob=>blob?res(blob):rej(new Error('toBlob')),'image/png');};img.onerror=(e)=>{URL.revokeObjectURL(u);rej(e);};img.src=u;}catch(e){rej(e);}});}
+async function downloadPNG(p){try{const b=await svgToPngBlob(ensureSVG(p),1200);const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=getFileSafeName()+'-'+p.index+'.png';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);showToast('PNG downloaded');}catch(e){showToast('PNG render failed — try SVG');}}
+function copySVG(p){const svg=getDisplaySVG(p);navigator.clipboard.writeText(svg).then(()=>showToast('SVG copied')).catch(()=>showToast('Copy failed'));}
+function traitTypeLabel(k){return k.replace(/([A-Z])/g,' $1').replace(/^./,c=>c.toUpperCase());}
+function exportCSV(){if(!currentPieces.length)return;const keys=Object.keys(currentPieces[0].traits);const header=['index',...keys,...keys.map(k=>k+'_rarity'),'isOneOfOne'].join(',');const rows=currentPieces.map(p=>[p.index,...keys.map(k=>p.traits[k]),...keys.map(k=>p.rarity[k]),p.isOneOfOne?'true':'false'].join(','));const b=new Blob([[header,...rows].join('\n')],{type:'text/csv'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=getFileSafeName()+'-traits.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);showToast('Trait sheet exported');}
+async function downloadBatchZip(){
+  if(!currentPieces.length)return;
+  if(typeof JSZip==='undefined'){showToast('JSZip not loaded');return;}
+  showToast('Rendering '+currentPieces.length+' PNGs…');
+  const zip=new JSZip(),images=zip.folder('images'),vectors=zip.folder('vectors'),metadata=zip.folder('metadata');
+  const BATCH=12;
+  for(let start=0;start<currentPieces.length;start+=BATCH){
+    const batch=currentPieces.slice(start,Math.min(start+BATCH,currentPieces.length));
+    const results=await Promise.all(batch.map(p=>svgToPngBlob(ensureSVG(p),1200).then(b=>({p,b})).catch(()=>({p,b:null}))));
+    for(const {p,b} of results){
+      if(b)images.file(p.index+'.png',b,{compression:'STORE'});
+      vectors.file(p.index+'.svg',getDisplaySVG(p));
+      const attrs=Object.keys(p.traits).map(k=>({trait_type:traitTypeLabel(k),value:p.traits[k],rarity:p.rarity[k]}));
+      if(p.isOneOfOne)attrs.push({trait_type:'Tier',value:'1/1'});
+      const meta={name:getDisplayName()+' #'+p.index,description:getDescription()||'Generative chibi character from '+getDisplayName()+'.',image:'images/'+p.index+'.png',vector:'vectors/'+p.index+'.svg',chain:currentChain,isOneOfOne:!!p.isOneOfOne,attributes:attrs};
+      const sym=getSymbol();if(sym)meta.symbol=sym;if(currentChain==='ethereum')meta.external_url='';
+      metadata.file(p.index+'.json',JSON.stringify(meta,null,2));
+    }
+    if(currentPieces.length>40)showToast('Rendered '+Math.min(start+BATCH,currentPieces.length)+'/'+currentPieces.length+'…');
+  }
+  zip.file('collection.json',JSON.stringify({name:getDisplayName(),symbol:getSymbol()||undefined,description:getDescription()||undefined,chain:currentChain,supply:currentPieces.length,oneOfOneCount:currentPieces.filter(p=>p.isOneOfOne).length,seed:parseFormattedInt(document.getElementById('seed-input').value)||0,generatedAt:new Date().toISOString()},null,2));
+  try{showToast('Zipping…');const b=await zip.generateAsync({type:'blob'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=getFileSafeName()+'-batch.zip';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);showToast('Batch downloaded');}catch(e){showToast('Zip failed');}
+}
+
+function openLightbox(idx){
+  const p=currentPieces[idx];
+  document.getElementById('lb-preview').innerHTML=getDisplaySVG(p);
+  const lt=document.getElementById('lb-title');lt.textContent=getDisplayName()+' #'+p.index;lt.classList.toggle('is-1of1',!!p.isOneOfOne);
+  document.getElementById('lb-traits').innerHTML=Object.entries(p.traits).map(([k,v])=>`<div class="lb-trait"><div class="lb-trait-k">${k}</div><div class="lb-trait-v">${String(v).replace(/_/g,' ')} <span style="font-size:9px;color:${rarityColor(p.rarity[k])};text-transform:uppercase;">${p.rarity[k]}</span></div></div>`).join('');
+  document.getElementById('lb-download-png').onclick=()=>downloadPNG(p);
+  document.getElementById('lb-download').onclick=()=>downloadSVG(p);
+  document.getElementById('lb-copy').onclick=()=>copySVG(p);
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox(){document.getElementById('lightbox').classList.remove('open');document.getElementById('lb-preview').innerHTML='';}
+
+document.getElementById('chain-controls').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;currentChain=b.dataset.chain;document.querySelectorAll('#chain-controls .chip').forEach(c=>c.classList.remove('active'));b.classList.add('active');applyChainTheme(currentChain);});
+document.getElementById('collection-name-input').addEventListener('input',()=>{const v=document.getElementById('collection-name-input').value.trim();document.getElementById('h1-text').textContent=v?'Build '+v:'Build your collection';document.title=(v||'Chibi')+' — Generator';});
+document.getElementById('tier-controls').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;currentTier=b.dataset.tier;document.querySelectorAll('#tier-controls .chip').forEach(c=>c.classList.remove('active'));b.classList.add('active');});
+document.getElementById('controls').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;const key=b.dataset.key,id=b.dataset.id,row=b.parentElement;if(id===''){locks[key]=[];row.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));b.classList.add('active');return;}const i=locks[key].indexOf(id);if(i===-1){locks[key].push(id);b.classList.add('active');}else{locks[key].splice(i,1);b.classList.remove('active');}const rc=row.querySelector('.chip[data-id=""]');if(locks[key].length===0){if(rc)rc.classList.add('active');}else{if(rc)rc.classList.remove('active');}});
+document.getElementById('grid').addEventListener('click',e=>{const t=e.target.closest('.tile');if(!t)return;openLightbox(parseInt(t.dataset.idx,10));});
+document.getElementById('animate-toggle').addEventListener('click',()=>{currentAnimate=!currentAnimate;const b=document.getElementById('animate-toggle');b.classList.toggle('active',currentAnimate);b.textContent='animate: '+(currentAnimate?'on':'off');});
+document.getElementById('generate-btn').addEventListener('click',render);
+document.getElementById('reroll-btn').addEventListener('click',()=>{document.getElementById('seed-input').value=formatWithCommas(Math.floor(Math.random()*100000));render();});
+document.getElementById('reset-btn').addEventListener('click',()=>{Object.keys(locks).forEach(k=>locks[k]=[]);currentTier='any';document.querySelectorAll('#tier-controls .chip').forEach(c=>c.classList.remove('active'));document.querySelector('#tier-controls .chip[data-tier="any"]').classList.add('active');document.querySelectorAll('#controls .chip-row').forEach(row=>{row.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));const d=row.querySelector('.chip[data-id=""]');if(d)d.classList.add('active');});render();});
+document.getElementById('csv-btn').addEventListener('click',exportCSV);
+document.getElementById('download-batch-btn').addEventListener('click',downloadBatchZip);
+document.getElementById('lb-close-btn').addEventListener('click',closeLightbox);
+document.getElementById('lightbox').addEventListener('click',e=>{if(e.target.id==='lightbox')closeLightbox();});
+attachComma(document.getElementById('seed-input'));
+attachComma(document.getElementById('count-input'));
+attachComma(document.getElementById('oneofone-input'));
+let oneOfOneManuallyEdited=false;
+document.getElementById('oneofone-input').addEventListener('input',()=>{oneOfOneManuallyEdited=true;});
+document.getElementById('count-input').addEventListener('input',()=>{if(oneOfOneManuallyEdited)return;const s=parseFormattedInt(document.getElementById('count-input').value)||0;document.getElementById('oneofone-input').value=formatWithCommas(Math.floor(s*0.10));});
+applyChainTheme(currentChain);
+buildControls();
+document.getElementById('seed-input').value=formatWithCommas(Math.floor(Math.random()*100000));
+render();
+</script>
+</body>
+</html>
