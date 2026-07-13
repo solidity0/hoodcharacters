@@ -612,7 +612,7 @@ function shadeColor(hex, percent) {
   return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
 }
 
-const CHAIN_THEMES = { bitcoin: '#f7931a', ethereum: '#627eea' };
+const CHAIN_THEMES = { bitcoin: '#f7931a', ethereum: '#627eea', robinhood: '#ccff00' };
 
 const api = {
   generatePiece, generateBatch, TRAITS, TIER_FALLBACK,
