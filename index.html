@@ -92,6 +92,7 @@ main { padding:24px; max-width:1280px; margin:0 auto; }
         <div class="chip-row" id="chain-controls">
           <button class="chip" data-chain="bitcoin">bitcoin</button>
           <button class="chip active" data-chain="ethereum">ethereum</button>
+          <button class="chip" data-chain="robinhood">robinhood</button>
         </div>
       </div>
       <div class="trait-group" style="grid-column:1/-1;"><div class="trait-label">Description (optional)</div><textarea id="collection-description-input" rows="2" placeholder="A short description for your collection metadata"></textarea></div>
@@ -764,7 +765,7 @@ function shadeColor(hex, percent) {
   return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
 }
 
-const CHAIN_THEMES = { bitcoin: '#f7931a', ethereum: '#627eea' };
+const CHAIN_THEMES = { bitcoin: '#f7931a', ethereum: '#627eea', robinhood: '#ccff00' };
 
 const api = {
   generatePiece, generateBatch, TRAITS, TIER_FALLBACK,
@@ -1046,7 +1047,7 @@ async function downloadBatchZip(){
       const attrs=Object.keys(p.traits).map(k=>({trait_type:traitTypeLabel(k),value:p.traits[k],rarity:p.rarity[k]}));
       if(p.isOneOfOne)attrs.push({trait_type:'Tier',value:'1/1'});
       const meta={name:getDisplayName()+' #'+p.index,description:getDescription()||'Generative chibi character from '+getDisplayName()+'.',image:'images/'+p.index+'.png',vector:'vectors/'+p.index+'.svg',chain:currentChain,isOneOfOne:!!p.isOneOfOne,attributes:attrs};
-      const sym=getSymbol();if(sym)meta.symbol=sym;if(currentChain==='ethereum')meta.external_url='';
+      const sym=getSymbol();if(sym)meta.symbol=sym;if(currentChain==='ethereum'||currentChain==='robinhood')meta.external_url='';
       metadata.file(p.index+'.json',JSON.stringify(meta,null,2));
     }
     if(currentPieces.length>40)showToast('Rendered '+Math.min(start+BATCH,currentPieces.length)+'/'+currentPieces.length+'…');
