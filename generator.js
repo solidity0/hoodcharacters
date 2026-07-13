@@ -1,6 +1,6 @@
 // ============================================================
 // Chibi Pixel Character — Generative Trait Engine v1
-// Blocky pixel-art chibi characters. Fixed background color (#cbe94a) for
+// Blocky pixel-art chibi characters. Fixed background color (#c5e506) for
 // every piece — not a trait, a constant. Locked in from reference art.
 // Usage:
 //   Node:    const { generatePiece, generateBatch } = require('./generator.js');
@@ -25,7 +25,7 @@ function weightedPick(rng, pool) {
 }
 
 // ---------- fixed background ----------
-const BG_COLOR = '#cbe94a';
+const BG_COLOR = '#c5e506';
 
 // ---------- trait pools ----------
 const TRAITS = {
