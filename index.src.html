@@ -57,8 +57,8 @@ main { padding:24px; max-width:1280px; margin:0 auto; }
 .lightbox { display:none; position:fixed; inset:0; z-index:300; background:rgba(0,0,0,.88); align-items:center; justify-content:center; padding:20px; }
 .lightbox.open { display:flex; }
 .lb-inner { background:var(--panel); border:1px solid var(--border); max-width:680px; width:100%; display:grid; grid-template-columns:1fr 1fr; align-items:start; max-height:88vh; overflow:auto; position:relative; }
-.lb-preview { background:#000; }
-.lb-preview svg { display:block; width:100%; }
+.lb-preview { background:#000; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+.lb-preview svg { display:block; width:100%; height:100%; }
 .lb-meta { padding:20px; display:flex; flex-direction:column; gap:12px; }
 .lb-title { font-family:'Space Mono',monospace; font-size:14px; color:var(--white); letter-spacing:.05em; }
 .lb-title.is-1of1 { color:var(--acid); }
@@ -208,19 +208,23 @@ function pickTrait(rng,key,tierOverride) {
 function generateOne(index,seed,opts) {
   const tierOverride=opts&&opts.tierOverride, isOneOfOne=!!(opts&&opts.isOneOfOne);
   const rng=gMulberry32((seed|0)*100003+index);
-  const skinTone=pickTrait(rng,'skinTone',tierOverride);
+  const skinToneLocked=!!(locks.skinTone&&locks.skinTone.length);
+  const skinTone=(isOneOfOne && !skinToneLocked) ? G.pickOneOfOneSkinTone(rng) : pickTrait(rng,'skinTone',tierOverride);
   const hairColorLocked=!!(locks.hairColor&&locks.hairColor.length);
   const hairColor=(isOneOfOne && !hairColorLocked) ? G.pickOneOfOneHairColor(rng) : pickTrait(rng,'hairColor',tierOverride);
   const hairStyle=pickTrait(rng,'hairStyle',tierOverride);
-  const outfitType=pickTrait(rng,'outfitType',tierOverride);
+  const outfitTypeLocked=!!(locks.outfitType&&locks.outfitType.length);
+  const outfitType=(isOneOfOne && !outfitTypeLocked) ? G.pickOneOfOneOutfitType(rng) : pickTrait(rng,'outfitType',tierOverride);
   const outfitColor=pickTrait(rng,'outfitColor',tierOverride);
   const eyeStyle=pickTrait(rng,'eyeStyle',tierOverride);
   const accessory=pickTrait(rng,'accessory',tierOverride);
+  const backdropLocked=!!(locks.backdrop&&locks.backdrop.length);
+  const backdrop=(isOneOfOne && !backdropLocked) ? G.pickOneOfOneBackdrop(rng) : pickTrait(rng,'backdrop',tierOverride);
 
-  const picks={skinTone,hairColor,hairStyle,outfitType,outfitColor,eyeStyle,accessory};
+  const picks={skinTone,hairColor,hairStyle,outfitType,outfitColor,eyeStyle,accessory,backdrop};
   return { index, picks, svg:null, isOneOfOne, seed,
-    traits:{skinTone:skinTone.id,hairColor:hairColor.id,hairStyle:hairStyle.id,outfitType:outfitType.id,outfitColor:outfitColor.id,eyeStyle:eyeStyle.id,accessory:accessory.id},
-    rarity:{skinTone:skinTone.rarity,hairColor:hairColor.rarity,hairStyle:hairStyle.rarity,outfitType:outfitType.rarity,outfitColor:outfitColor.rarity,eyeStyle:eyeStyle.rarity,accessory:accessory.rarity},
+    traits:{skinTone:skinTone.id,hairColor:hairColor.id,hairStyle:hairStyle.id,outfitType:outfitType.id,outfitColor:outfitColor.id,eyeStyle:eyeStyle.id,accessory:accessory.id,backdrop:backdrop.id},
+    rarity:{skinTone:skinTone.rarity,hairColor:hairColor.rarity,hairStyle:hairStyle.rarity,outfitType:outfitType.rarity,outfitColor:outfitColor.rarity,eyeStyle:eyeStyle.rarity,accessory:accessory.rarity,backdrop:backdrop.rarity},
     tier:tierOverride||currentTier };
 }
 
@@ -246,7 +250,7 @@ const CATEGORY_META=[
   {key:'skinTone',label:'Skin tone',swatch:'hex'},{key:'hairColor',label:'Hair color',swatch:'hex'},
   {key:'hairStyle',label:'Hair style'},{key:'outfitType',label:'Outfit'},
   {key:'outfitColor',label:'Outfit color',swatch:'hex'},{key:'eyeStyle',label:'Eyes'},
-  {key:'accessory',label:'Accessory'}
+  {key:'accessory',label:'Accessory'},{key:'backdrop',label:'Backdrop'}
 ];
 function rarityColor(r){return r==='rare'?'var(--acid)':r==='uncommon'?'var(--orange)':'var(--dim)';}
 function buildControls(){
