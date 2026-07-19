@@ -27,6 +27,26 @@ function weightedPick(rng, pool) {
 // ---------- fixed background ----------
 const BG_COLOR = '#c5e506';
 
+// ---------- 1/1-exclusive background color ----------
+// Regular pieces are always BG_COLOR (not a trait). 1/1s draw from this
+// curated palette instead, same pattern as the other ONE_OF_ONE_* pickers.
+// Add more entries here as more hex codes come in.
+const ONE_OF_ONE_BG_WEIGHTS = [
+  { id: 'eth_blue',    hex: '#627EEA', weight: 34 },
+  { id: 'red',         hex: '#FF0000', weight: 33 },
+  { id: 'punchy_blue', hex: '#3A2BE8', weight: 33 }
+];
+function pickOneOfOneBgColor(rng) {
+  const total = ONE_OF_ONE_BG_WEIGHTS.reduce((s,w)=>s+w.weight,0);
+  let r = rng() * total;
+  for (const w of ONE_OF_ONE_BG_WEIGHTS) {
+    if (r < w.weight) return { id: w.id, hex: w.hex, rarity: 'oneOfOne' };
+    r -= w.weight;
+  }
+  const w0 = ONE_OF_ONE_BG_WEIGHTS[0];
+  return { id: w0.id, hex: w0.hex, rarity: 'oneOfOne' };
+}
+
 // ---------- trait pools ----------
 const TRAITS = {
   skinTone: [
@@ -99,6 +119,13 @@ const TRAITS = {
     { id: 'buildingsTall',    weight: 25,  rarity: 'rare' },
     { id: 'buildingsSkyline', weight: 20,  rarity: 'rare' },
     { id: 'birds',            weight: 20,  rarity: 'rare' }
+  ],
+  background: [
+    { id: 'warm_sand', hex: '#F4A259', weight: 28, rarity: 'common' },
+    { id: 'seafoam',   hex: '#4ECDC4', weight: 25, rarity: 'common' },
+    { id: 'cream',     hex: '#F5F0E8', weight: 22, rarity: 'common' },
+    { id: 'lavender',  hex: '#A78BFA', weight: 15, rarity: 'uncommon' },
+    { id: 'sunflower', hex: '#FFD23F', weight: 10, rarity: 'rare' }
   ]
 };
 
@@ -249,6 +276,26 @@ function shadePixel(hex, percent) {
   return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
 }
 
+// Perceptual brightness of a hex color (0-255) — used to decide whether
+// face-feature ink (eyes/mouth/glasses) needs to flip to a light tone.
+// Bug this fixes: eye ink, mouth shading, and glasses lens rim were all
+// hardcoded to near-black (#1a1a1a) — the EXACT hex of the 'onyx' skin
+// tone, so on onyx pieces the whole face silently disappeared (ink drawn
+// in a color identical to what it's drawn on top of).
+function luma(hex) {
+  const num = parseInt(hex.replace('#',''), 16);
+  const r=(num>>16)&0xff, g=(num>>8)&0xff, b=num&0xff;
+  return 0.299*r + 0.587*g + 0.114*b;
+}
+// Only flips for genuinely near-black skin (onyx, luma ~26) — mid-tones
+// like brown/red/blue skin keep the existing dark ink, which already
+// reads fine against them.
+function faceInk(skinHex) {
+  return luma(skinHex) < 60
+    ? { ink: '#e8e8e8', hl: '#2a2a2a' }  // light ink + dark highlight on dark skin
+    : { ink: '#1a1a1a', hl: '#ffffff' }; // default: dark ink + white highlight
+}
+
 // A single blended shadow tone reads as smooth/vector — real limited-palette
 // pixel art fakes gradient/shadow with DITHERING: alternating two flat colors
 // in a checker pattern instead of a third blended color. Used for torso,
@@ -341,15 +388,15 @@ function drawHead(grid, skinHex) {
 function drawMouth(grid, skinHex, rng) {
   const w = rng() < 0.3 ? 3 : 2;
   const ox = w === 3 ? 8 : (rng() < 0.5 ? 8 : 9);
-  rect(grid, ox, 9, w, 1, shadePixel(skinHex,-35));
+  const mouthColor = luma(skinHex) < 60 ? shadePixel(skinHex, 40) : shadePixel(skinHex, -35);
+  rect(grid, ox, 9, w, 1, mouthColor);
   if (rng() < 0.25) { // blush — small personality touch, not present on every piece
     px(grid, 7, 8, '#ff9a9a'); px(grid, 12, 8, '#ff9a9a');
   }
 }
 
-function drawEyes(grid, style, animate, jx) {
-  const ink = '#1a1a1a';
-  const hl = '#ffffff'; // highlight — this single pixel per eye is what makes them read as alive rather than blank dots
+function drawEyes(grid, style, animate, jx, skinHex) {
+  const { ink, hl } = faceInk(skinHex);
   const lx = 8+jx, rx = 11+jx, ey = 7;
   if (style==='dot') {
     px(grid,lx,ey,ink); px(grid,lx,ey+1,ink); px(grid,lx,ey,hl);
@@ -399,7 +446,7 @@ function drawHair(grid, style, hairHex) {
 }
 
 // ---------- render accessory ----------
-function drawAccessory(grid, style, jx) {
+function drawAccessory(grid, style, jx, skinHex) {
   if (style==='bow') {
     rect(grid,13,3,2,2,'#ff5ac8');
     px(grid,15,3,'#ff5ac8'); px(grid,15,4,'#ff5ac8');
@@ -409,7 +456,7 @@ function drawAccessory(grid, style, jx) {
     // is painted (top row + left/right columns); the eye's own pixel column
     // is left untouched so it stays visible through the "lens". Aligned to
     // the same jx as drawEyes so the frame never drifts off the actual eyes.
-    const lensColor = '#1a1a1a';
+    const lensColor = faceInk(skinHex).ink;
     const lx = 8+jx, rx = 11+jx, ey = 7;
     [lx, rx].forEach(cx => {
       rect(grid, cx-1, ey-1, 3, 1, lensColor); // top rim
@@ -479,7 +526,8 @@ function drawBackdrop(grid, backdropId) {
 }
 
 // ---------- pixel -> SVG (with optional blink animation) ----------
-function gridToSVG(grid, index, animate, animRng) {
+function gridToSVG(grid, index, animate, animRng, bgColorHex) {
+  const bg = bgColorHex || BG_COLOR;
   let cells = '';
   for (let y=0;y<GRID_H;y++) for (let x=0;x<GRID_W;x++) if (grid[y][x]) {
     cells += `<rect x="${x*PX}" y="${y*PX}" width="${PX}" height="${PX}" fill="${grid[y][x]}"/>`;
@@ -498,7 +546,7 @@ function gridToSVG(grid, index, animate, animRng) {
       `<rect x="${ex2}" y="${ey}" width="${PX}" height="${2*PX}" fill="var(--lidcolor,#f5e8dc)"/></g>`;
   }
   return `<svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
-<rect width="${SIZE}" height="${SIZE}" fill="${BG_COLOR}"/>
+<rect width="${SIZE}" height="${SIZE}" fill="${bg}"/>
 ${cells}
 ${blinkAnim}
 </svg>`;
@@ -511,9 +559,10 @@ ${blinkAnim}
 // edge of the band for texture. Filled directly into the grid before the
 // final outline pass, so it naturally picks up a horizon-line edge anywhere
 // it borders empty background (e.g. beside the character's legs).
-function drawGround(grid) {
-  const groundBase = shadePixel(BG_COLOR, -35);
-  const groundEdge = shadePixel(BG_COLOR, -20);
+function drawGround(grid, bgColorHex) {
+  const bg = bgColorHex || BG_COLOR;
+  const groundBase = shadePixel(bg, -35);
+  const groundEdge = shadePixel(bg, -20);
   rect(grid, -PAD_SIDE, CHAR, GRID_W, GROUND_ROWS, groundBase);
   ditherRow(grid, -PAD_SIDE, CHAR, GRID_W, groundEdge, groundBase);
 }
@@ -521,7 +570,8 @@ function drawGround(grid) {
 // ---------- shared renderer ----------
 function renderFromTraits(picks, index, seed, opts) {
   const animate = !!(opts && opts.animate);
-  const { skinTone, hairColor, hairStyle, outfitType, outfitColor, eyeStyle, accessory, backdrop } = picks;
+  const { skinTone, hairColor, hairStyle, outfitType, outfitColor, eyeStyle, accessory, backdrop, bgColor } = picks;
+  const bgHex = (bgColor && bgColor.hex) || BG_COLOR;
   const grid = newGrid();
   // separate, deterministic RNG stream for cosmetic jitter (face offset, mouth
   // width, blush, dithering isn't randomized but this keeps jitter stable per
@@ -537,10 +587,10 @@ function renderFromTraits(picks, index, seed, opts) {
   // than inside drawEyes) so drawAccessory's glasses can align to the same
   // shifted position instead of drifting off the actual eyes.
   const jx = jitterRng() < 0.3 ? (jitterRng() < 0.5 ? -1 : 1) : 0;
-  drawEyes(grid, eyeStyle.id, animate, jx);
+  drawEyes(grid, eyeStyle.id, animate, jx, skinTone.hex);
   drawMouth(grid, skinTone.hex, jitterRng);
   drawHair(grid, hairStyle.id, hairColor.isRainbow ? hairColor.hex : hairColor.hex);
-  drawAccessory(grid, accessory.id, jx);
+  drawAccessory(grid, accessory.id, jx, skinTone.hex);
 
   // rainbow hair override: recolor the hair cells with a gradient sweep
   // (applied after drawHair so it overrides whatever flat color was used)
@@ -552,14 +602,14 @@ function renderFromTraits(picks, index, seed, opts) {
     }
   }
 
-  drawGround(grid);
+  drawGround(grid, bgHex);
 
   // Final pass, after every layer is composited: outline the whole silhouette.
   addOutline(grid);
 
   let animRng = null;
   if (animate) animRng = mulberry32((seed ?? 0) * 70001 + index * 9973 + 3);
-  const svg = gridToSVG(grid, index, animate, animRng);
+  const svg = gridToSVG(grid, index, animate, animRng, bgHex);
 
   // set the lid color to match this piece's actual skin tone via a wrapper
   return svg.replaceAll('var(--lidcolor,#f5e8dc)', skinTone.hex);
@@ -579,8 +629,9 @@ function generatePiece(index, seed, tier, opts) {
   const eyeStyle   = pickByRarity(rng, TRAITS.eyeStyle, t);
   const accessory  = pickByRarity(rng, TRAITS.accessory, t);
   const backdrop   = isOneOfOne ? pickOneOfOneBackdrop(rng) : pickByRarity(rng, TRAITS.backdrop, t);
+  const bgColor    = isOneOfOne ? pickOneOfOneBgColor(rng) : pickByRarity(rng, TRAITS.background, t);
 
-  const picks = { skinTone, hairColor, hairStyle, outfitType, outfitColor, eyeStyle, accessory, backdrop };
+  const picks = { skinTone, hairColor, hairStyle, outfitType, outfitColor, eyeStyle, accessory, backdrop, bgColor };
   const svg = renderFromTraits(picks, index, seed, { animate: !!(opts && opts.animate) });
 
   return {
@@ -588,12 +639,12 @@ function generatePiece(index, seed, tier, opts) {
     traits: {
       skinTone: skinTone.id, hairColor: hairColor.id, hairStyle: hairStyle.id,
       outfitType: outfitType.id, outfitColor: outfitColor.id, eyeStyle: eyeStyle.id, accessory: accessory.id,
-      backdrop: backdrop.id
+      backdrop: backdrop.id, background: bgColor.id
     },
     rarity: {
       skinTone: skinTone.rarity, hairColor: hairColor.rarity, hairStyle: hairStyle.rarity,
       outfitType: outfitType.rarity, outfitColor: outfitColor.rarity, eyeStyle: eyeStyle.rarity, accessory: accessory.rarity,
-      backdrop: backdrop.rarity
+      backdrop: backdrop.rarity, background: bgColor.rarity
     }
   };
 }
@@ -621,7 +672,8 @@ const api = {
   RAINBOW_HAIR, ONE_OF_ONE_HAIR_WEIGHTS, pickOneOfOneHairColor,
   ONE_OF_ONE_SKIN_TONE_WEIGHTS, pickOneOfOneSkinTone,
   ONE_OF_ONE_OUTFIT_WEIGHTS, pickOneOfOneOutfitType,
-  ONE_OF_ONE_BACKDROP_WEIGHTS, pickOneOfOneBackdrop
+  ONE_OF_ONE_BACKDROP_WEIGHTS, pickOneOfOneBackdrop,
+  ONE_OF_ONE_BG_WEIGHTS, pickOneOfOneBgColor
 };
 const hasRealDOM = typeof document !== 'undefined' && typeof document.createElement === 'function';
 if (hasRealDOM && typeof window !== 'undefined') {
