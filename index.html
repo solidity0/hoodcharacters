@@ -185,9 +185,10 @@ const BG_COLOR = '#c5e506';
 // curated palette instead, same pattern as the other ONE_OF_ONE_* pickers.
 // Add more entries here as more hex codes come in.
 const ONE_OF_ONE_BG_WEIGHTS = [
-  { id: 'eth_blue',    hex: '#627EEA', weight: 34 },
-  { id: 'red',         hex: '#FF0000', weight: 33 },
-  { id: 'punchy_blue', hex: '#3A2BE8', weight: 33 }
+  { id: 'eth_blue',    hex: '#627EEA', weight: 25 },
+  { id: 'red',         hex: '#FF0000', weight: 25 },
+  { id: 'punchy_blue', hex: '#3A2BE8', weight: 25 },
+  { id: 'rich_lime',   hex: '#B8EB00', weight: 25 }
 ];
 function pickOneOfOneBgColor(rng) {
   const total = ONE_OF_ONE_BG_WEIGHTS.reduce((s,w)=>s+w.weight,0);
@@ -274,11 +275,12 @@ const TRAITS = {
     { id: 'birds',            weight: 20,  rarity: 'rare' }
   ],
   background: [
-    { id: 'warm_sand', hex: '#F4A259', weight: 28, rarity: 'common' },
-    { id: 'seafoam',   hex: '#4ECDC4', weight: 25, rarity: 'common' },
-    { id: 'cream',     hex: '#F5F0E8', weight: 22, rarity: 'common' },
-    { id: 'lavender',  hex: '#A78BFA', weight: 15, rarity: 'uncommon' },
-    { id: 'sunflower', hex: '#FFD23F', weight: 10, rarity: 'rare' }
+    { id: 'warm_sand', hex: '#F4A259', weight: 25, rarity: 'common' },
+    { id: 'seafoam',   hex: '#4ECDC4', weight: 22, rarity: 'common' },
+    { id: 'cream',     hex: '#F5F0E8', weight: 20, rarity: 'common' },
+    { id: 'lime',      hex: '#c5e506', weight: 18, rarity: 'common' },
+    { id: 'lavender',  hex: '#A78BFA', weight: 10, rarity: 'uncommon' },
+    { id: 'sunflower', hex: '#FFD23F', weight: 5,  rarity: 'rare' }
   ]
 };
 
