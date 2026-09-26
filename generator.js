@@ -264,6 +264,7 @@ const HEAD = { cx: 200, cy: 150, rx: 85, ry: 78 };
 const EYE_Y = 165, EYE_LX = 165, EYE_RX = 235, EYE_JITTER = 8;
 const GROUND_Y = 332;
 const STROKE_W = 4;
+const CROP = { x: 32, y: 12, size: 336 };
 
 // Darkens/lightens a hex color by percent — used for shading and for the
 // per-shape outline (a shape-specific dark tone reads better than one flat
@@ -316,6 +317,44 @@ function path(d, fill, extra) { return `<path${attrs({ d, ...styled(fill, extra)
 function ellipse(cx, cy, rx, ry, fill, extra) { return `<ellipse${attrs({ cx, cy, rx, ry, ...styled(fill, extra) })}/>`; }
 function circle(cx, cy, r, fill, extra) { return `<circle${attrs({ cx, cy, r, ...styled(fill, extra) })}/>`; }
 function rrect(x, y, w, h, r, fill, extra) { return `<rect${attrs({ x, y, width: w, height: h, rx: r, ...styled(fill, extra) })}/>`; }
+function rrectD(x, y, w, h, r) {
+  return `M${x+r} ${y} L${x+w-r} ${y} Q${x+w} ${y} ${x+w} ${y+r} L${x+w} ${y+h-r} Q${x+w} ${y+h} ${x+w-r} ${y+h} L${x+r} ${y+h} Q${x} ${y+h} ${x} ${y+h-r} L${x} ${y+r} Q${x} ${y} ${x+r} ${y} Z`;
+}
+
+// ---------- ink + form shading ----------
+// Same finishing passes as the ink generators: each major shape gets a soft,
+// wide, low-opacity ink underlay beneath its crisp outline (brush bleed), then
+// form shading clipped to the shape — a core shadow and fine hatching on the
+// side away from a fixed upper-left light, plus a soft highlight on the lit
+// side — so volumes read as rounded instead of flat cut-paper.
+let _sid = 's';      // per-piece id prefix so inline SVGs on one page never share clip ids
+let _clipN = 0;
+function inked(d, fill, extra) {
+  const base = fill.startsWith('url(') ? ((extra && extra.baseHex) || '#6a4a8a') : fill;
+  return `<path${attrs({ d, fill: 'none', stroke: outlineOf(base), 'stroke-width': 11, 'stroke-linejoin': 'round', opacity: 0.16 })}/>` +
+    path(d, fill, extra);
+}
+function formShade(d, fill, box, opts) {
+  const o = opts || {};
+  const id = `${_sid}k${_clipN++}`;
+  const [x0, y0, x1, y1] = box, w = x1 - x0, h = y1 - y0;
+  const dark = fill.startsWith('url(') ? '#000000' : shadePixel(fill, -28);
+  const hatchInk = fill.startsWith('url(') ? '#000000' : outlineOf(fill);
+  let g = ellipse(x0 + w * (o.sx || 0.9), y0 + h * (o.sy || 0.78), w * 0.62, h * 0.8, dark, { stroke: false, opacity: o.shadow ?? 0.5 });
+  if (o.hatch !== false) {
+    const step = 7;
+    for (let x = x0 + w * 0.55; x < x1 + h; x += step) g += line(`M${fmt(x)} ${y1} L${fmt(x - h)} ${y0}`, hatchInk, 1.1, 0.08);
+  }
+  if (o.highlight !== false) g += ellipse(x0 + w * 0.3, y0 + h * 0.2, w * 0.24, h * 0.13, '#ffffff', { stroke: false, opacity: o.hl ?? 0.2 });
+  return `<clipPath id="${id}"><path d="${d}"/></clipPath><g clip-path="url(#${id})">${g}</g>`;
+}
+// Fill + ink underlay + clipped shading + crisp outline redrawn on top.
+function shaded(d, fill, box, opts, extra) {
+  const e = extra || {};
+  const outline = e.stroke === false ? '' : `<path${attrs({ d, ...styled(fill, e), fill: 'none', opacity: undefined, 'fill-opacity': undefined })}/>`;
+  return inked(d, fill, { ...e, stroke: false }) + formShade(d, fill, box, opts) + outline;
+}
+
 function line(d, color, w, opacity) {
   return `<path${attrs({ d, fill: 'none', stroke: color, 'stroke-width': w, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity })}/>`;
 }
@@ -336,22 +375,30 @@ function drawBodyAndOutfit(skinHex, outfitId, outfitHex) {
   let s = '';
 
   // legs + sneakers
-  s += rrect(172, 290, 24, 44, 6, skinHex);
-  s += rrect(204, 290, 24, 44, 6, skinHex);
-  s += path('M160 340 Q160 326 176 326 L194 326 Q200 326 200 334 L200 342 L160 342 Z', shoe);
-  s += path('M240 340 Q240 326 224 326 L206 326 Q200 326 200 334 L200 342 L240 342 Z', shoe);
+  s += shaded(rrectD(172, 290, 24, 44, 6), skinHex, [172, 290, 196, 334], { hatch: false });
+  s += shaded(rrectD(204, 290, 24, 44, 6), skinHex, [204, 290, 228, 334], { hatch: false, shadow: 0.7 });
+  const shoeL = 'M160 340 Q160 326 176 326 L194 326 Q200 326 200 334 L200 342 L160 342 Z';
+  const shoeR = 'M240 340 Q240 326 224 326 L206 326 Q200 326 200 334 L200 342 L240 342 Z';
+  s += shaded(shoeL, shoe, [160, 326, 200, 342], { hatch: false, hl: 0.3 });
+  s += shaded(shoeR, shoe, [200, 326, 240, 342], { hatch: false, hl: 0.3 });
   s += line('M163 339 L197 339', '#f5f5f5', 3);
   s += line('M203 339 L237 339', '#f5f5f5', 3);
+  s += line('M176 330 L184 330 M204 330 L212 330', '#f5f5f5', 1.8, 0.8); // laces
 
   // neck
-  s += rrect(184, 206, 32, 26, 6, skinHex);
-  s += rrect(186, 222, 28, 8, 3, shadePixel(skinHex, -16), { stroke: false });
+  s += shaded(rrectD(184, 206, 32, 26, 6), skinHex, [184, 206, 216, 232], { hatch: false, sy: 0.9, shadow: 0.7 });
 
-  // arms (sleeve + fist)
-  s += circle(x0 - 11, 294, 13, skinHex);
-  s += circle(x1 + 11, 294, 13, skinHex);
-  s += rrect(x0 - 25, 230, 30, 60, 12, sleeve);
-  s += rrect(x1 - 5, 230, 30, 60, 12, sleeve);
+  // arms (sleeve + fist); right arm sits in the shade
+  const fist = (cx, dark) => shaded(`M${cx-13} 294 A13 13 0 1 0 ${cx+13} 294 A13 13 0 1 0 ${cx-13} 294 Z`, skinHex, [cx-13, 281, cx+13, 307], { hatch: false, shadow: dark ? 0.7 : 0.4 }) +
+    line(`M${cx-6} 300 L${cx-6} 304 M${cx} 301 L${cx} 305 M${cx+6} 300 L${cx+6} 304`, shadePixel(skinHex, -40), 1.6, 0.8);
+  s += fist(x0 - 11, false);
+  s += fist(x1 + 11, true);
+  s += shaded(rrectD(x0 - 25, 230, 30, 60, 12), sleeve, [x0 - 25, 230, x0 + 5, 290], { sx: 1.1, shadow: 0.35 });
+  s += shaded(rrectD(x1 - 5, 230, 30, 60, 12), sleeve, [x1 - 5, 230, x1 + 25, 290], { sx: 0.7, shadow: 0.6 });
+  if (outfitId !== 'tank') { // elbow creases
+    s += line(`M${x0-18} 262 Q${x0-10} 266 ${x0-4} 262`, outlineOf(sleeve), 2, 0.45);
+    s += line(`M${x1+4} 262 Q${x1+10} 266 ${x1+18} 262`, outlineOf(sleeve), 2, 0.45);
+  }
   if (outfitId === 'sweater') {
     s += rrect(x0 - 25, 276, 30, 12, 5, '#f5f5f5');
     s += rrect(x1 - 5, 276, 30, 12, 5, '#f5f5f5');
@@ -362,8 +409,11 @@ function drawBodyAndOutfit(skinHex, outfitId, outfitHex) {
   if (outfitId === 'tank') {
     s += path(`M${x0+12} 218 L${x1-12} 218 L${x1-12} 240 L${x0+12} 240 Z`, skinHex); // bare shoulders/chest
   }
-  s += path(torsoPath(x0, x1, top), outfitHex);
-  s += rrect(x0 + 3, 288, x1 - x0 - 6, 14, 5, shadePixel(outfitHex, -18), { stroke: false }); // soft base shadow
+  s += shaded(torsoPath(x0, x1, top), outfitHex, [x0, top, x1, 306], { sx: 0.95, sy: 0.7 });
+  // fabric folds from the armpits and at the waist
+  s += line(`M${x0+10} ${top+22} Q${x0+22} ${top+34} ${x0+16} ${top+50}`, outlineOf(outfitHex), 2, 0.4);
+  s += line(`M${x1-10} ${top+22} Q${x1-22} ${top+34} ${x1-16} ${top+50}`, outlineOf(outfitHex), 2, 0.4);
+  s += line(`M${x0+30} 292 Q${CX} 298 ${x1-30} 292`, outlineOf(outfitHex), 2, 0.3);
 
   if (outfitId === 'tank') {
     s += rrect(x0 + 14, 216, 14, 22, 5, outfitHex);
@@ -404,11 +454,15 @@ function drawBodyAndOutfit(skinHex, outfitId, outfitHex) {
 const HEAD_PATH = 'M200 72 C258 72 286 102 286 148 C286 180 280 204 262 218 C246 228 224 230 200 230 C176 230 154 228 138 218 C120 204 114 180 114 148 C114 102 142 72 200 72 Z';
 function drawHead(skinHex) {
   let s = '';
-  s += circle(HEAD.cx - HEAD.rx + 1, 160, 15, skinHex); // ears
-  s += circle(HEAD.cx + HEAD.rx - 1, 160, 15, skinHex);
-  s += path(HEAD_PATH, skinHex);
-  // jaw shading
-  s += path('M132 196 Q150 226 200 228 Q250 226 268 196 Q246 220 200 220 Q154 220 132 196 Z', shadePixel(skinHex, -14), { stroke: false });
+  const ear = (cx, dir) => inked(`M${cx-15} 160 A15 15 0 1 0 ${cx+15} 160 A15 15 0 1 0 ${cx-15} 160 Z`, skinHex) +
+    line(`M${cx+dir*4} 152 Q${cx-dir*6} 158 ${cx+dir*2} 168`, shadePixel(skinHex, -35), 2.5, 0.7);
+  s += ear(HEAD.cx - HEAD.rx + 1, -1);
+  s += ear(HEAD.cx + HEAD.rx - 1, 1);
+  s += shaded(HEAD_PATH, skinHex, [114, 72, 286, 230], { sx: 0.95, sy: 0.72, shadow: 0.42, hl: 0.24 });
+  const contour = shadePixel(skinHex, luma(skinHex) < 60 ? 30 : -30);
+  // nose (lit from the upper-left, so its shadow falls to the right) + cheekbone line
+  s += line('M198 172 Q206 182 200 188 Q196 190 192 187', contour, 3, 0.75);
+  s += line('M254 186 Q262 196 256 208', contour, 2.5, 0.35);
   return s;
 }
 
@@ -489,7 +543,8 @@ function drawFacialHair(style, hairColor, skinHex) {
   } else if (style === 'goatee') {
     return mustache + path('M186 210 Q200 206 214 210 L210 226 Q200 232 190 226 Z', c, { stroke: false });
   } else if (style === 'beard') {
-    return path('M122 160 Q122 226 200 234 Q278 226 278 160 L266 164 Q262 212 222 214 Q210 206 200 206 Q190 206 178 214 Q138 212 134 164 Z', c) + mustache;
+    const beard = 'M122 160 Q122 226 200 234 Q278 226 278 160 L266 164 Q262 212 222 214 Q210 206 200 206 Q190 206 178 214 Q138 212 134 164 Z';
+    return shaded(beard, c, bboxOfD(beard), { shadow: 0.4, hl: 0.12 }) + mustache;
   }
   return '';
 }
@@ -527,10 +582,17 @@ const HAIR_SHAPES = {
 function hairFill(hairColor, gradId) {
   return hairColor.isRainbow ? `url(#${gradId})` : hairColor.hex;
 }
+// Bounding box of a path made only of absolute M/L/Q/C/Z commands (x,y pairs).
+function bboxOfD(d) {
+  const n = d.match(/-?\d+(\.\d+)?/g).map(Number);
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (let i = 0; i + 1 < n.length; i += 2) { x0 = Math.min(x0, n[i]); x1 = Math.max(x1, n[i]); y0 = Math.min(y0, n[i+1]); y1 = Math.max(y1, n[i+1]); }
+  return [x0, y0, x1, y1];
+}
 function drawHairBack(style, hairColor, gradId) {
   const shape = HAIR_SHAPES[style];
   if (!shape || !shape.back) return '';
-  return path(shape.back, hairFill(hairColor, gradId), { baseHex: '#6a4a8a' });
+  return shaded(shape.back, hairFill(hairColor, gradId), bboxOfD(shape.back), { shadow: 0.45 }, { baseHex: '#6a4a8a' });
 }
 // Sideburns stay visible under a cap, which hides the rest of the front hair.
 function drawSideburns(hairColor, gradId) {
@@ -545,7 +607,7 @@ function drawHairFront(style, hairColor, gradId, capped) {
   let s = '';
   if (shape.sides) s += path(shape.sides, fill, { baseHex: '#6a4a8a', opacity: 0.55 });
   // the afro's hairline blends into its back layer, so it gets no outline
-  s += path(shape.front, fill, style === 'afro' ? { stroke: false } : { baseHex: '#6a4a8a' });
+  s += shaded(shape.front, fill, bboxOfD(shape.front), { shadow: 0.4, hl: 0.28 }, style === 'afro' ? { stroke: false } : { baseHex: '#6a4a8a' });
   if (style === 'durag') {
     s += line('M200 58 L200 124', hairColor.isRainbow ? '#ffffff' : shadePixel(hairColor.hex, -25), 4, hairColor.isRainbow ? 0.5 : undefined);
     s += line('M140 98 Q170 84 196 80', '#ffffff', 5, 0.3);
@@ -565,7 +627,8 @@ function drawHairFront(style, hairColor, gradId, capped) {
 const CAP_COLOR = '#e83c5a';
 function drawAccessory(style, jx, skinHex) {
   if (style === 'cap') {
-    return path('M112 136 Q106 54 200 50 Q294 54 288 136 Q200 118 112 136 Z', CAP_COLOR) +
+    const crown = 'M112 136 Q106 54 200 50 Q294 54 288 136 Q200 118 112 136 Z';
+    return shaded(crown, CAP_COLOR, bboxOfD(crown), { shadow: 0.4, hl: 0.3 }) +
       path('M200 124 Q262 116 318 132 Q322 144 306 146 Q256 136 200 138 Z', shadePixel(CAP_COLOR, -18)) +
       circle(200, 52, 5, shadePixel(CAP_COLOR, -18)) +
       line('M200 54 L200 122', shadePixel(CAP_COLOR, -30), 3);
@@ -600,6 +663,9 @@ function brickBody(side, x, top, w, color) {
   let s = rrect(X, top, w, GROUND_Y - top + 6, 2, color);
   // mortar courses — faint horizontal lines for brick texture
   for (let y = top + 10; y < GROUND_Y; y += 10) s += line(`M${X+3} ${y} L${X+w-3} ${y}`, shadePixel(color, -22), 1.5, 0.45);
+  // shadow side (light comes from the upper-left) + a lit left edge
+  s += rrect(X + w * 0.68, top, w * 0.32, GROUND_Y - top + 6, 2, '#000000', { stroke: false, opacity: 0.16 });
+  s += rrect(X + 2, top, 3, GROUND_Y - top + 6, 1, '#ffffff', { stroke: false, opacity: 0.14 });
   s += rrect(X - 3, top - 6, w + 6, 8, 1, TRIM); // cornice
   return s;
 }
@@ -670,26 +736,56 @@ function cornerStore(side, x, top, w) {
   return s;
 }
 function drawBackdrop(backdropId) {
+  // Positioned inside the cropped frame (x 40-360); slightly faded so the
+  // character stays the focal point.
+  let s = '';
   if (backdropId === 'buildingsSmall') {
-    return brownstone('L', 4, 232, 66) + brownstone('R', 4, 232, 66);
+    s = brownstone('L', 42, 232, 60) + brownstone('R', 42, 232, 60);
   } else if (backdropId === 'buildingsTall') {
-    return tenement('L', 6, 118, 62) + tenement('R', 6, 118, 62);
+    s = tenement('L', 44, 118, 56) + tenement('R', 44, 118, 56);
   } else if (backdropId === 'buildingsSkyline') {
-    return tenement('L', 0, 128, 40) + cornerStore('L', 38, 236, 40) +
-      tenement('R', 0, 128, 40) + cornerStore('R', 38, 236, 40);
+    s = tenement('L', 40, 128, 34) + cornerStore('L', 72, 236, 40) +
+      tenement('R', 40, 128, 34) + cornerStore('R', 72, 236, 40);
   } else if (backdropId === 'birds') {
     const bird = (x, y) => line(`M${x-12} ${y} Q${x-6} ${y-8} ${x} ${y} Q${x+6} ${y-8} ${x+12} ${y}`, '#2a2a2a', 3.5);
-    return bird(45, 60) + bird(80, 30) + bird(322, 32) + bird(356, 64);
+    s = bird(66, 62) + bird(100, 42) + bird(302, 44) + bird(336, 66);
   }
-  return '';
+  return s ? `<g opacity="0.9">${s}</g>` : '';
 }
 
-// A gentle hill in a darker shade of the background so the character
-// stands somewhere rather than floating in a color swatch.
-function drawGround(bgHex) {
-  const base = shadePixel(bgHex, -30);
-  return path(`M-10 ${GROUND_Y} Q200 ${GROUND_Y-16} 410 ${GROUND_Y} L410 410 L-10 410 Z`, base, { stroke: shadePixel(bgHex, -45) }) +
-    ellipse(CX, GROUND_Y + 10, 66, 9, shadePixel(bgHex, -55), { stroke: false, opacity: 0.35 });
+// A sidewalk in a darker shade of the background: curb highlight, paving
+// joints and a couple of cracks, plus a soft contact shadow under the feet.
+function drawGround(bgHex, rng) {
+  const base = shadePixel(bgHex, -30), ink = shadePixel(bgHex, -50);
+  let s = path(`M-10 ${GROUND_Y} Q200 ${GROUND_Y-16} 410 ${GROUND_Y} L410 410 L-10 410 Z`, base, { stroke: shadePixel(bgHex, -45) });
+  s += line(`M-10 ${GROUND_Y+4} Q200 ${GROUND_Y-12} 410 ${GROUND_Y+4}`, shadePixel(bgHex, -12), 2.5, 0.7);
+  for (let x = 40; x <= 360; x += 52) s += line(`M${x} ${GROUND_Y + 2} L${x + (x - 200) * 0.35} 410`, ink, 2, 0.35);
+  for (let i = 0; i < 2; i++) {
+    const cx = 60 + rng() * 280, cy = GROUND_Y + 8 + rng() * 6;
+    s += line(`M${fmt(cx)} ${fmt(cy)} l6 3 l-2 5 l7 2`, ink, 1.5, 0.4);
+  }
+  return s + ellipse(CX, GROUND_Y + 10, 70, 10, ink, { stroke: false, opacity: 0.4 });
+}
+
+// Atmosphere: the flat background becomes a lit backdrop — a radial light
+// pool behind the character, paper grain specks and a soft vignette, the same
+// way the ink generators treat their backgrounds.
+function drawAtmosphere(bgHex, rng) {
+  const id = `${_sid}bg`;
+  let s = `<defs><radialGradient id="${id}" cx="50%" cy="42%" r="62%">` +
+    `<stop offset="0" stop-color="${shadePixel(bgHex, 30)}"/><stop offset="0.55" stop-color="${bgHex}"/><stop offset="1" stop-color="${shadePixel(bgHex, -22)}"/>` +
+    `</radialGradient></defs><rect width="${VB}" height="${VB}" fill="url(#${id})"/>`;
+  const speck = shadePixel(bgHex, -40), light = shadePixel(bgHex, 45);
+  for (let i = 0; i < 70; i++) {
+    const x = CROP.x + rng() * CROP.size, y = CROP.y + rng() * (GROUND_Y - CROP.y), r = 0.6 + rng() * 1.6;
+    s += circle(fmt(x), fmt(y), fmt(r), rng() < 0.6 ? speck : light, { stroke: false, opacity: fmt(0.15 + rng() * 0.25) });
+  }
+  return s;
+}
+function drawVignette() {
+  const id = `${_sid}vg`;
+  return `<defs><radialGradient id="${id}" cx="50%" cy="45%" r="70%"><stop offset="0.6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.28"/></radialGradient></defs>` +
+    `<rect x="${CROP.x}" y="${CROP.y}" width="${CROP.size}" height="${CROP.size}" fill="url(#${id})"/>`;
 }
 
 // ---------- shared renderer ----------
@@ -702,6 +798,9 @@ function renderFromTraits(picks, index, seed, opts) {
   // however many trait rolls happen above
   const jitterRng = mulberry32((seed ?? 0) * 130003 + index * 17 + 11);
   const gradId = `rb-${seed ?? 0}-${index}`;
+  _sid = `h${String(seed ?? 0).replace(/\W/g, '')}_${index}_`; _clipN = 0;
+  // own RNG stream for grain/cracks so it never shifts the face jitter above
+  const fxRng = mulberry32((seed ?? 0) * 91193 + index * 131 + 7);
   const capped = accessory.id === 'cap';
 
   let defs = '';
@@ -714,7 +813,9 @@ function renderFromTraits(picks, index, seed, opts) {
 
   let body = '';
   if (backdrop) body += drawBackdrop(backdrop.id);
-  body += drawGround(bgHex);
+  body += drawGround(bgHex, fxRng);
+  // soft light pool behind the figure, tinted by the outfit color
+  body += ellipse(CX, 200, 118, 150, shadePixel(outfitColor.hex, 55), { stroke: false, opacity: 0.22 });
   // a cap sits over an afro's crown, so skip the big afro back layer then
   if (!(capped && hairStyle.id === 'afro')) body += drawHairBack(hairStyle.id, hairColor, gradId);
   body += drawBodyAndOutfit(skinTone.hex, outfitType.id, outfitColor.hex);
@@ -743,10 +844,12 @@ function renderFromTraits(picks, index, seed, opts) {
     blinkAnim = `<g opacity="0"><animate attributeName="opacity" values="0;0;1;0;0" keyTimes="0;0.46;0.5;0.54;1" dur="${dur}s" begin="-${phase}s" repeatCount="indefinite"/>${lids}</g>`;
   }
 
-  return `<svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${VB} ${VB}" xmlns="http://www.w3.org/2000/svg">
-${defs}<rect width="${VB}" height="${VB}" fill="${bgHex}"/>
+  // 1.25x crop into the 400x400 stage so the figure fills the frame
+  return `<svg width="${SIZE}" height="${SIZE}" viewBox="${CROP.x} ${CROP.y} ${CROP.size} ${CROP.size}" xmlns="http://www.w3.org/2000/svg">
+${defs}${drawAtmosphere(bgHex, fxRng)}
 ${body}
 ${blinkAnim}
+${drawVignette()}
 </svg>`;
 }
 
@@ -800,7 +903,7 @@ function shadeColor(hex, percent) {
   return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
 }
 
-const CHAIN_THEMES = { bitcoin: '#f7931a', ethereum: '#627eea', robinhood: '#ccff00' };
+const CHAIN_THEMES = { bitcoin: '#f7931a', ethereum: '#627eea', robinhood: '#00c805' };
 
 const api = {
   generatePiece, generateBatch, TRAITS, TIER_FALLBACK,
