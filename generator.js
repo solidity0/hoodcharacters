@@ -854,13 +854,51 @@ function renderFromTraits(picks, index, seed, opts) {
     blinkAnim = `<g opacity="0"><animate attributeName="opacity" values="0;0;1;0;0" keyTimes="0;0.46;0.5;0.54;1" dur="${dur}s" begin="-${phase}s" repeatCount="indefinite"/>${lids}</g>`;
   }
 
-  // 1.25x crop into the 400x400 stage so the figure fills the frame
-  return `<svg width="${SIZE}" height="${SIZE}" viewBox="${CROP.x} ${CROP.y} ${CROP.size} ${CROP.size}" xmlns="http://www.w3.org/2000/svg">
+  // warm golden light from the upper-left, over everything but the vignette
+  const sunId = `${_sid}sun`;
+  const sun = `<defs><radialGradient id="${sunId}" cx="18%" cy="8%" r="95%"><stop offset="0" stop-color="#ffb347" stop-opacity="0.12"/><stop offset="1" stop-color="#ff7a1a" stop-opacity="0"/></radialGradient></defs>` +
+    `<rect x="${CROP.x}" y="${CROP.y}" width="${CROP.size}" height="${CROP.size}" fill="url(#${sunId})"/>`;
+  // 1.2x crop into the 400x400 stage so the figure fills the frame
+  const svg = `<svg width="${SIZE}" height="${SIZE}" viewBox="${CROP.x} ${CROP.y} ${CROP.size} ${CROP.size}" xmlns="http://www.w3.org/2000/svg">
 ${defs}${drawAtmosphere(bgHex, fxRng)}
 ${body}
 ${blinkAnim}
+${sun}
 ${drawVignette()}
 </svg>`;
+  return svg.replace(/#[0-9a-fA-F]{6}\b/g, warmGrade);
+}
+
+// ---------- color grade ----------
+// Every color in the finished piece goes through one warm, saturated grade so
+// the whole collection shares a single look: channels nudged toward red/amber
+// and away from blue, then saturation boosted. Greys pick up a warm tint too.
+const _gradeCache = new Map();
+function warmGrade(hex) {
+  const key = hex.toLowerCase();
+  if (_gradeCache.has(key)) return _gradeCache.get(key);
+  const num = parseInt(key.slice(1), 16);
+  let r = ((num >> 16) & 255) / 255, g = ((num >> 8) & 255) / 255, b = (num & 255) / 255;
+  // saturation boost (HSL) first, so cool colors stay vivid rather than going grey
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let l = (max + min) / 2, h = 0, sat = 0;
+  if (max !== min) {
+    const d = max - min;
+    sat = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h /= 6;
+  }
+  sat = Math.min(1, sat * 1.28 + (sat > 0.04 ? 0.04 : 0));
+  // warm tint: a small shift toward amber that fades out on dark colors, so
+  // black hair and onyx skin stay black
+  const warm = Math.min(1, Math.max(0, (l - 0.12) * 1.6));
+  const q = l < 0.5 ? l * (1 + sat) : l + sat - l * sat, p = 2 * l - q;
+  const hue = (t) => { t = (t + 1) % 1; return t < 1/6 ? p + (q - p) * 6 * t : t < 1/2 ? q : t < 2/3 ? p + (q - p) * (2/3 - t) * 6 : p; };
+  const out = sat === 0 ? [l, l, l] : [hue(h + 1/3), hue(h), hue(h - 1/3)];
+  out[0] += 0.035 * warm; out[1] += 0.012 * warm; out[2] -= 0.05 * warm;
+  const res = '#' + out.map(v => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('');
+  _gradeCache.set(key, res);
+  return res;
 }
 
 
