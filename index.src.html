@@ -77,9 +77,9 @@ main { padding:24px; max-width:1280px; margin:0 auto; }
 <header>
   <a href="../index.html" class="hub-back">&larr; Hub</a>
   <div class="brand">Chibi <span>//</span> Generator</div>
-  <div class="eyebrow">Pixel Character Engine</div>
+  <div class="eyebrow">Vector Character Engine</div>
   <div class="h1" id="h1-text">Build your collection</div>
-  <div class="sub">Blocky pixel-art chibi characters on a fixed lemon-green background. Lock specific traits or leave on random — nothing regenerates until you hit Generate.</div>
+  <div class="sub">Smooth flat-vector chibi characters on colored backgrounds. Lock specific traits or leave on random — nothing regenerates until you hit Generate.</div>
 </header>
 <main>
   <div class="panel-section">
@@ -392,7 +392,7 @@ function setupVirtualGrid(myGen){
 
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window._tt);window._tt=setTimeout(()=>t.classList.remove('show'),2600);}
 function downloadSVG(p){const svg=getDisplaySVG(p);const b=new Blob([svg],{type:'image/svg+xml'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=getFileSafeName()+'-'+p.index+'.svg';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);showToast('SVG downloaded');}
-function svgToPngBlob(svgString,size){return new Promise((res,rej)=>{try{const b=new Blob([svgString],{type:'image/svg+xml'});const u=URL.createObjectURL(b);const img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=size;c.height=size;const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.drawImage(img,0,0,size,size);URL.revokeObjectURL(u);c.toBlob(blob=>blob?res(blob):rej(new Error('toBlob')),'image/png');};img.onerror=(e)=>{URL.revokeObjectURL(u);rej(e);};img.src=u;}catch(e){rej(e);}});}
+function svgToPngBlob(svgString,size){return new Promise((res,rej)=>{try{const b=new Blob([svgString],{type:'image/svg+xml'});const u=URL.createObjectURL(b);const img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=size;c.height=size;const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=true;ctx.drawImage(img,0,0,size,size);URL.revokeObjectURL(u);c.toBlob(blob=>blob?res(blob):rej(new Error('toBlob')),'image/png');};img.onerror=(e)=>{URL.revokeObjectURL(u);rej(e);};img.src=u;}catch(e){rej(e);}});}
 async function downloadPNG(p){try{const b=await svgToPngBlob(ensureSVG(p),1200);const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=getFileSafeName()+'-'+p.index+'.png';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);showToast('PNG downloaded');}catch(e){showToast('PNG render failed — try SVG');}}
 function copySVG(p){const svg=getDisplaySVG(p);navigator.clipboard.writeText(svg).then(()=>showToast('SVG copied')).catch(()=>showToast('Copy failed'));}
 function traitTypeLabel(k){return k.replace(/([A-Z])/g,' $1').replace(/^./,c=>c.toUpperCase());}
