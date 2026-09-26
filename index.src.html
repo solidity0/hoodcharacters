@@ -79,7 +79,7 @@ main { padding:24px; max-width:1280px; margin:0 auto; }
   <div class="brand">Chibi <span>//</span> Generator</div>
   <div class="eyebrow">Vector Character Engine</div>
   <div class="h1" id="h1-text">Build your collection</div>
-  <div class="sub">Smooth flat-vector chibi characters on colored backgrounds. Lock specific traits or leave on random — nothing regenerates until you hit Generate.</div>
+  <div class="sub">Smooth flat-vector chibi guys on colored backgrounds. Lock specific traits or leave on random — nothing regenerates until you hit Generate.</div>
 </header>
 <main>
   <div class="panel-section">
@@ -223,11 +223,12 @@ function generateOne(index,seed,opts) {
   const backdrop=(isOneOfOne && !backdropLocked) ? G.pickOneOfOneBackdrop(rng) : pickTrait(rng,'backdrop',tierOverride);
   const backgroundLocked=!!(locks.background&&locks.background.length);
   const bgColor=(isOneOfOne && !backgroundLocked) ? G.pickOneOfOneBgColor(rng) : pickTrait(rng,'background',tierOverride);
+  const facialHair=pickTrait(rng,'facialHair',tierOverride);
 
-  const picks={skinTone,hairColor,hairStyle,outfitType,outfitColor,eyeStyle,accessory,backdrop,bgColor};
+  const picks={skinTone,hairColor,hairStyle,outfitType,outfitColor,eyeStyle,accessory,backdrop,bgColor,facialHair};
   return { index, picks, svg:null, isOneOfOne, seed,
-    traits:{skinTone:skinTone.id,hairColor:hairColor.id,hairStyle:hairStyle.id,outfitType:outfitType.id,outfitColor:outfitColor.id,eyeStyle:eyeStyle.id,accessory:accessory.id,backdrop:backdrop.id,background:bgColor.id},
-    rarity:{skinTone:skinTone.rarity,hairColor:hairColor.rarity,hairStyle:hairStyle.rarity,outfitType:outfitType.rarity,outfitColor:outfitColor.rarity,eyeStyle:eyeStyle.rarity,accessory:accessory.rarity,backdrop:backdrop.rarity,background:bgColor.rarity},
+    traits:{skinTone:skinTone.id,hairColor:hairColor.id,hairStyle:hairStyle.id,outfitType:outfitType.id,outfitColor:outfitColor.id,eyeStyle:eyeStyle.id,accessory:accessory.id,backdrop:backdrop.id,background:bgColor.id,facialHair:facialHair.id},
+    rarity:{skinTone:skinTone.rarity,hairColor:hairColor.rarity,hairStyle:hairStyle.rarity,outfitType:outfitType.rarity,outfitColor:outfitColor.rarity,eyeStyle:eyeStyle.rarity,accessory:accessory.rarity,backdrop:backdrop.rarity,background:bgColor.rarity,facialHair:facialHair.rarity},
     tier:tierOverride||currentTier };
 }
 
@@ -253,7 +254,7 @@ const CATEGORY_META=[
   {key:'skinTone',label:'Skin tone',swatch:'hex'},{key:'hairColor',label:'Hair color',swatch:'hex'},
   {key:'hairStyle',label:'Hair style'},{key:'outfitType',label:'Outfit'},
   {key:'outfitColor',label:'Outfit color',swatch:'hex'},{key:'eyeStyle',label:'Eyes'},
-  {key:'accessory',label:'Accessory'},{key:'backdrop',label:'Backdrop'},
+  {key:'accessory',label:'Accessory'},{key:'facialHair',label:'Facial hair'},{key:'backdrop',label:'Backdrop'},
   {key:'background',label:'Background',swatch:'hex'}
 ];
 function rarityColor(r){return r==='rare'?'var(--acid)':r==='uncommon'?'var(--orange)':'var(--dim)';}
