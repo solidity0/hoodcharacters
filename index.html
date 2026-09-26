@@ -911,11 +911,13 @@ function generateOne(index,seed,opts) {
   const accessory=pickTrait(rng,'accessory',tierOverride);
   const backdropLocked=!!(locks.backdrop&&locks.backdrop.length);
   const backdrop=(isOneOfOne && !backdropLocked) ? G.pickOneOfOneBackdrop(rng) : pickTrait(rng,'backdrop',tierOverride);
+  const backgroundLocked=!!(locks.background&&locks.background.length);
+  const bgColor=(isOneOfOne && !backgroundLocked) ? G.pickOneOfOneBgColor(rng) : pickTrait(rng,'background',tierOverride);
 
-  const picks={skinTone,hairColor,hairStyle,outfitType,outfitColor,eyeStyle,accessory,backdrop};
+  const picks={skinTone,hairColor,hairStyle,outfitType,outfitColor,eyeStyle,accessory,backdrop,bgColor};
   return { index, picks, svg:null, isOneOfOne, seed,
-    traits:{skinTone:skinTone.id,hairColor:hairColor.id,hairStyle:hairStyle.id,outfitType:outfitType.id,outfitColor:outfitColor.id,eyeStyle:eyeStyle.id,accessory:accessory.id,backdrop:backdrop.id},
-    rarity:{skinTone:skinTone.rarity,hairColor:hairColor.rarity,hairStyle:hairStyle.rarity,outfitType:outfitType.rarity,outfitColor:outfitColor.rarity,eyeStyle:eyeStyle.rarity,accessory:accessory.rarity,backdrop:backdrop.rarity},
+    traits:{skinTone:skinTone.id,hairColor:hairColor.id,hairStyle:hairStyle.id,outfitType:outfitType.id,outfitColor:outfitColor.id,eyeStyle:eyeStyle.id,accessory:accessory.id,backdrop:backdrop.id,background:bgColor.id},
+    rarity:{skinTone:skinTone.rarity,hairColor:hairColor.rarity,hairStyle:hairStyle.rarity,outfitType:outfitType.rarity,outfitColor:outfitColor.rarity,eyeStyle:eyeStyle.rarity,accessory:accessory.rarity,backdrop:backdrop.rarity,background:bgColor.rarity},
     tier:tierOverride||currentTier };
 }
 
@@ -941,7 +943,8 @@ const CATEGORY_META=[
   {key:'skinTone',label:'Skin tone',swatch:'hex'},{key:'hairColor',label:'Hair color',swatch:'hex'},
   {key:'hairStyle',label:'Hair style'},{key:'outfitType',label:'Outfit'},
   {key:'outfitColor',label:'Outfit color',swatch:'hex'},{key:'eyeStyle',label:'Eyes'},
-  {key:'accessory',label:'Accessory'},{key:'backdrop',label:'Backdrop'}
+  {key:'accessory',label:'Accessory'},{key:'backdrop',label:'Backdrop'},
+  {key:'background',label:'Background',swatch:'hex'}
 ];
 function rarityColor(r){return r==='rare'?'var(--acid)':r==='uncommon'?'var(--orange)':'var(--dim)';}
 function buildControls(){
