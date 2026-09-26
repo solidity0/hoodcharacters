@@ -911,22 +911,32 @@ function cornerStore(side, x, top, w) {
   s += rrect(X + 6, ay + 20, w - 12, GROUND_Y - ay - 26, 2, WIN_LIT, { stroke: TRIM, sw: 2.5 });
   return s;
 }
-function drawBackdrop(backdropId) {
-  // Positioned inside the cropped frame (x 40-360); slightly faded so the
-  // character stays the focal point.
-  let s = '';
-  if (backdropId === 'buildingsSmall') {
-    s = brownstone('L', 42, 232, 60) + brownstone('R', 42, 232, 60);
-  } else if (backdropId === 'buildingsTall') {
-    s = tenement('L', 44, 118, 56) + tenement('R', 44, 118, 56);
-  } else if (backdropId === 'buildingsSkyline') {
-    s = tenement('L', 40, 128, 34) + cornerStore('L', 72, 236, 40) +
-      tenement('R', 40, 128, 34) + cornerStore('R', 72, 236, 40);
-  } else if (backdropId === 'birds') {
+// Buildings sit on a far street line (FAR_Y) higher up the frame than the
+// character's sidewalk, scaled down toward the outer edges and hazed into the
+// background, so they read as a block across the street behind him — with a
+// clear gap between them and his arms.
+const FAR_Y = 296, FAR_SCALE = 0.78;
+function farSide(side, markup) {
+  const ax = side === 'L' ? CROP.x : CROP.x + CROP.size; // anchor on the frame edge
+  return `<g transform="translate(${ax} ${FAR_Y}) scale(${FAR_SCALE}) translate(${-ax} ${-GROUND_Y})">${markup}</g>`;
+}
+function drawBackdrop(backdropId, bgHex) {
+  const side = (sd) => {
+    if (backdropId === 'buildingsSmall') return brownstone(sd, 42, 232, 60);
+    if (backdropId === 'buildingsTall') return tenement(sd, 44, 118, 56);
+    if (backdropId === 'buildingsSkyline') return tenement(sd, 40, 128, 34) + cornerStore(sd, 72, 236, 40);
+    return '';
+  };
+  if (backdropId === 'birds') {
     const bird = (x, y) => line(`M${x-12} ${y} Q${x-6} ${y-8} ${x} ${y} Q${x+6} ${y-8} ${x+12} ${y}`, '#2a2a2a', 3.5);
-    s = bird(66, 62) + bird(100, 42) + bird(302, 44) + bird(336, 66);
+    return `<g opacity="0.8">${bird(66, 62) + bird(100, 42) + bird(302, 44) + bird(336, 66)}</g>`;
   }
-  return s ? `<g opacity="0.9">${s}</g>` : '';
+  const L = side('L'), R = side('R');
+  if (!L) return '';
+  // far street the buildings stand on, then the hazed buildings themselves
+  const street = rrect(CROP.x - 10, FAR_Y - 2, CROP.size + 20, GROUND_Y - FAR_Y + 20, 0, shadePixel(bgHex, -16), { stroke: false }) +
+    line(`M${CROP.x - 10} ${FAR_Y - 2} L${CROP.x + CROP.size + 10} ${FAR_Y - 2}`, shadePixel(bgHex, -32), 2, 0.6);
+  return street + `<g opacity="0.72">${farSide('L', L)}${farSide('R', R)}</g>`;
 }
 
 // A sidewalk in a darker shade of the background: curb highlight, paving
@@ -988,7 +998,7 @@ function renderFromTraits(picks, index, seed, opts) {
   }
 
   let body = '';
-  if (backdrop) body += drawBackdrop(backdrop.id);
+  if (backdrop) body += drawBackdrop(backdrop.id, bgHex);
   body += drawGround(bgHex, fxRng);
   // soft light pool behind the figure, tinted by the outfit color
   body += ellipse(CX, 200, 118, 150, shadePixel(outfitColor.hex, 55), { stroke: false, opacity: 0.22 });
