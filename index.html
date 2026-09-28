@@ -202,7 +202,7 @@ function weightedPick(rng, pool) {
 }
 
 // ---------- fixed background ----------
-const BG_COLOR = '#c5e506';
+const BG_COLOR = '#d0fa05';
 
 // ---------- 1/1-exclusive background color ----------
 // Regular pieces are always BG_COLOR (not a trait). 1/1s draw from this
@@ -309,7 +309,7 @@ const TRAITS = {
     { id: 'warm_sand', hex: '#F4A259', weight: 25, rarity: 'common' },
     { id: 'seafoam',   hex: '#4ECDC4', weight: 22, rarity: 'common' },
     { id: 'cream',     hex: '#F5F0E8', weight: 20, rarity: 'common' },
-    { id: 'lime',      hex: '#c5e506', weight: 18, rarity: 'common' },
+    { id: 'lime',      hex: '#d0fa05', weight: 18, rarity: 'common' },
     { id: 'lavender',  hex: '#A78BFA', weight: 10, rarity: 'uncommon' },
     { id: 'sunflower', hex: '#FFD23F', weight: 5,  rarity: 'rare' }
   ]
@@ -1043,13 +1043,16 @@ ${blinkAnim}
 ${sun}
 ${drawVignette()}
 </svg>`;
-  return svg.replace(/#[0-9a-fA-F]{6}\b/g, warmGrade);
+  return svg.replace(/#[0-9a-fA-F]{6}\b/g, (h) => UNGRADED.has(h.toLowerCase()) ? h : warmGrade(h));
 }
 
 // ---------- color grade ----------
 // Every color in the finished piece goes through one warm, saturated grade so
 // the whole collection shares a single look: channels nudged toward red/amber
 // and away from blue, then saturation boosted. Greys pick up a warm tint too.
+// Colours supplied as exact swatches keep their true value (the grade would
+// push #d0fa05 to #d9ff00); tones derived from them are still graded.
+const UNGRADED = new Set(['#d0fa05']);
 const _gradeCache = new Map();
 function warmGrade(hex) {
   const key = hex.toLowerCase();
