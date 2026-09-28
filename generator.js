@@ -327,6 +327,9 @@ function rrectD(x, y, w, h, r) {
 // side — so volumes read as rounded instead of flat cut-paper.
 let _sid = 's';      // per-piece id prefix so inline SVGs on one page never share clip ids
 let _clipN = 0;
+// Lite mode (gallery thumbnails): skips detail invisible at thumbnail size —
+// fine hatching and paper-grain specks — so tiles rasterise much faster.
+let _lite = false;
 function inked(d, fill, extra) {
   const base = fill.startsWith('url(') ? ((extra && extra.baseHex) || '#6a4a8a') : fill;
   return `<path${attrs({ d, fill: 'none', stroke: outlineOf(base), 'stroke-width': 11, 'stroke-linejoin': 'round', opacity: 0.16 })}/>` +
@@ -339,7 +342,7 @@ function formShade(d, fill, box, opts) {
   const dark = fill.startsWith('url(') ? '#000000' : shadePixel(fill, -28);
   const hatchInk = fill.startsWith('url(') ? '#000000' : outlineOf(fill);
   let g = ellipse(x0 + w * (o.sx || 0.9), y0 + h * (o.sy || 0.78), w * 0.62, h * 0.8, dark, { stroke: false, opacity: o.shadow ?? 0.5 });
-  if (o.hatch !== false) {
+  if (o.hatch !== false && !_lite) {
     const step = 7;
     for (let x = x0 + w * 0.55; x < x1 + h; x += step) g += line(`M${fmt(x)} ${y1} L${fmt(x - h)} ${y0}`, hatchInk, 1.1, 0.08);
   }
@@ -784,7 +787,7 @@ function drawAtmosphere(bgHex, rng) {
     `<stop offset="0" stop-color="${shadePixel(bgHex, 30)}"/><stop offset="0.55" stop-color="${bgHex}"/><stop offset="1" stop-color="${shadePixel(bgHex, -22)}"/>` +
     `</radialGradient></defs><rect width="${VB}" height="${VB}" fill="url(#${id})"/>`;
   const speck = shadePixel(bgHex, -40), light = shadePixel(bgHex, 45);
-  for (let i = 0; i < 70; i++) {
+  for (let i = 0; i < (_lite ? 0 : 70); i++) {
     const x = CROP.x + rng() * CROP.size, y = CROP.y + rng() * (GROUND_Y - CROP.y), r = 0.6 + rng() * 1.6;
     s += circle(fmt(x), fmt(y), fmt(r), rng() < 0.6 ? speck : light, { stroke: false, opacity: fmt(0.15 + rng() * 0.25) });
   }
@@ -799,6 +802,7 @@ function drawVignette() {
 // ---------- shared renderer ----------
 function renderFromTraits(picks, index, seed, opts) {
   const animate = !!(opts && opts.animate);
+  _lite = !!(opts && opts.lite);
   const { skinTone, hairColor, hairStyle, outfitType, outfitColor, eyeStyle, accessory, backdrop, bgColor, facialHair } = picks;
   const bgHex = (bgColor && bgColor.hex) || BG_COLOR;
   // separate, deterministic RNG stream for cosmetic jitter (eye offset, mouth

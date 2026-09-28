@@ -504,6 +504,9 @@ function rrectD(x, y, w, h, r) {
 // side — so volumes read as rounded instead of flat cut-paper.
 let _sid = 's';      // per-piece id prefix so inline SVGs on one page never share clip ids
 let _clipN = 0;
+// Lite mode (gallery thumbnails): skips detail invisible at thumbnail size —
+// fine hatching and paper-grain specks — so tiles rasterise much faster.
+let _lite = false;
 function inked(d, fill, extra) {
   const base = fill.startsWith('url(') ? ((extra && extra.baseHex) || '#6a4a8a') : fill;
   return `<path${attrs({ d, fill: 'none', stroke: outlineOf(base), 'stroke-width': 11, 'stroke-linejoin': 'round', opacity: 0.16 })}/>` +
@@ -516,7 +519,7 @@ function formShade(d, fill, box, opts) {
   const dark = fill.startsWith('url(') ? '#000000' : shadePixel(fill, -28);
   const hatchInk = fill.startsWith('url(') ? '#000000' : outlineOf(fill);
   let g = ellipse(x0 + w * (o.sx || 0.9), y0 + h * (o.sy || 0.78), w * 0.62, h * 0.8, dark, { stroke: false, opacity: o.shadow ?? 0.5 });
-  if (o.hatch !== false) {
+  if (o.hatch !== false && !_lite) {
     const step = 7;
     for (let x = x0 + w * 0.55; x < x1 + h; x += step) g += line(`M${fmt(x)} ${y1} L${fmt(x - h)} ${y0}`, hatchInk, 1.1, 0.08);
   }
@@ -961,7 +964,7 @@ function drawAtmosphere(bgHex, rng) {
     `<stop offset="0" stop-color="${shadePixel(bgHex, 30)}"/><stop offset="0.55" stop-color="${bgHex}"/><stop offset="1" stop-color="${shadePixel(bgHex, -22)}"/>` +
     `</radialGradient></defs><rect width="${VB}" height="${VB}" fill="url(#${id})"/>`;
   const speck = shadePixel(bgHex, -40), light = shadePixel(bgHex, 45);
-  for (let i = 0; i < 70; i++) {
+  for (let i = 0; i < (_lite ? 0 : 70); i++) {
     const x = CROP.x + rng() * CROP.size, y = CROP.y + rng() * (GROUND_Y - CROP.y), r = 0.6 + rng() * 1.6;
     s += circle(fmt(x), fmt(y), fmt(r), rng() < 0.6 ? speck : light, { stroke: false, opacity: fmt(0.15 + rng() * 0.25) });
   }
@@ -976,6 +979,7 @@ function drawVignette() {
 // ---------- shared renderer ----------
 function renderFromTraits(picks, index, seed, opts) {
   const animate = !!(opts && opts.animate);
+  _lite = !!(opts && opts.lite);
   const { skinTone, hairColor, hairStyle, outfitType, outfitColor, eyeStyle, accessory, backdrop, bgColor, facialHair } = picks;
   const bgHex = (bgColor && bgColor.hex) || BG_COLOR;
   // separate, deterministic RNG stream for cosmetic jitter (eye offset, mouth
@@ -1417,7 +1421,8 @@ function closeLightbox(){document.getElementById('lightbox').classList.remove('o
 
 // gallery hooks for the shared virtual grid / lightbox below
 const GALLERY_ASPECT = 1; // art height / width (square 480x480 canvas)
-function galleryThumb(p) { return ensureSVG(p); }
+// thumbnails use the engine's lite mode (no hatching/grain — invisible at tile size)
+function galleryThumb(p) { return G.renderFromTraits(p.picks, p.index, p.seed, { isOneOfOne: p.isOneOfOne, lite: true }); }
 function galleryPng(p) { return svgToPngBlob(ensureSVG(p), 1200); }
 
 /* ---------- virtual grid (shared gallery view, same as Generator 5) ----------
@@ -1426,17 +1431,53 @@ function galleryPng(p) { return svgToPngBlob(ensureSVG(p), 1200); }
    their SVG a few per animation frame after an instant sized placeholder. */
 // Tiles show the art as an <img> of the SVG (rasterised once by the browser) instead of live inline
 // SVG, so scrolling a big gallery doesn't repaint thousands of vector nodes every frame.
-function setThumb(el, svg) {
-  // rasterise at the tile's real pixel size (CSS size x device pixel ratio) so thumbnails are sharp
-  // on high-density phone screens instead of being drawn at the SVG's intrinsic size and rescaled
-  const px = Math.ceil((parseFloat(el.style.width) || 200) * Math.min(3, window.devicePixelRatio || 1));
-  svg = svg.replace(/^(<svg\b[^>]*?)\swidth="[\d.]+"\s+height="[\d.]+"/, '$1').replace(/^<svg\b/, '<svg width="' + px + '" height="' + px + '" preserveAspectRatio="xMidYMid meet"');
-  const u = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
-  el.dataset.url = u;
-  el.firstChild.innerHTML = '<img src="' + u + '" alt="" decoding="async" draggable="false">';
+// Each tile's SVG is rasterised ONCE into a small PNG at the tile's real pixel size and cached
+// (LRU), so scrolling back past a tile reuses a cheap bitmap instead of re-rasterising hundreds
+// of vector nodes. Only a few rasterisations run at a time so a fast scroll can't flood a frame.
+const THUMB_CACHE_LIMIT = 600, MAX_RASTER_IN_FLIGHT = 3;
+const _thumbCache = new Map(); // index -> { url, px }
+let _thumbGen = 0, _rasterInFlight = 0;
+function thumbPx(el) { return Math.ceil((parseFloat(el.style.width) || 200) * Math.min(3, window.devicePixelRatio || 1)); }
+function showThumb(el, url) {
+  el.firstChild.innerHTML = '<img src="' + url + '" alt="" decoding="async" draggable="false">';
   el.dataset.ready = '1';
 }
-function dropThumb(el) { if (el.dataset.url) { URL.revokeObjectURL(el.dataset.url); delete el.dataset.url; } }
+function cachePut(i, entry) {
+  _thumbCache.set(i, entry);
+  if (_thumbCache.size > THUMB_CACHE_LIMIT) { const [k, v] = _thumbCache.entries().next().value; URL.revokeObjectURL(v.url); _thumbCache.delete(k); }
+}
+function clearThumbCache() { for (const v of _thumbCache.values()) URL.revokeObjectURL(v.url); _thumbCache.clear(); _thumbGen++; }
+// returns true if the tile was filled (or started filling), false if it must wait for a free slot
+function setThumb(el, i) {
+  const px = thumbPx(el), hit = _thumbCache.get(i);
+  if (hit && hit.px === px) { _thumbCache.delete(i); _thumbCache.set(i, hit); showThumb(el, hit.url); return true; }
+  if (_rasterInFlight >= MAX_RASTER_IN_FLIGHT) return false;
+  _rasterInFlight++;
+  el.dataset.ready = 'pending';
+  const gen = _thumbGen;
+  let svg = galleryThumb(currentPieces[i]);
+  svg = svg.replace(/^(<svg\b[^>]*?)\swidth="[\d.]+"\s+height="[\d.]+"/, '$1').replace(/^<svg\b/, '<svg width="' + px + '" height="' + px + '" preserveAspectRatio="xMidYMid meet"');
+  const svgUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  const img = new Image();
+  const done = () => { URL.revokeObjectURL(svgUrl); _rasterInFlight--; VG.kick(); };
+  img.onload = () => {
+    if (gen !== _thumbGen) { done(); return; }
+    const c = document.createElement('canvas'); c.width = px; c.height = px;
+    c.getContext('2d').drawImage(img, 0, 0, px, px);
+    c.toBlob((blob) => {
+      if (blob && gen === _thumbGen) {
+        const url = URL.createObjectURL(blob);
+        cachePut(i, { url, px });
+        if (el.isConnected && el.dataset.idx == i) showThumb(el, url);
+      } else if (el.isConnected) delete el.dataset.ready;
+      done();
+    }, 'image/png');
+  };
+  img.onerror = () => { delete el.dataset.ready; done(); };
+  img.src = svgUrl;
+  return true;
+}
+function dropThumb(el) { /* cached bitmaps are owned by the LRU cache, nothing to free per tile */ }
 /* ---------- launch-ready export (shared by all generators) ----------
    EVM (ethereum / robinhood): OpenSea metadata standard, per-token JSON (with and without .json),
    an OpenSea Studio drop CSV and contract-level collection.json.
@@ -1549,15 +1590,17 @@ const VG = (function(){
     place(el, i);
     return el;
   }
+  // fill queued tiles while this frame has time to spare (~6ms), then yield
   function pump(){
     raf = 0;
-    let n = 8;
-    while (n-- > 0 && queue.length) {
-      const i = queue.shift(), el = tileEls.get(i);
-      if (!el || el.dataset.ready) continue;
-      setThumb(el, galleryThumb(currentPieces[i]));
+    const t0 = performance.now();
+    while (queue.length && performance.now() - t0 < 6) {
+      const i = queue[0], el = tileEls.get(i);
+      if (!el || el.dataset.ready) { queue.shift(); continue; }
+      if (!setThumb(el, i)) break; // rasteriser busy: resume when a slot frees up
+      queue.shift();
     }
-    if (queue.length) raf = requestAnimationFrame(pump);
+    if (queue.length && !raf && _rasterInFlight < MAX_RASTER_IN_FLIGHT) raf = requestAnimationFrame(pump);
   }
   function renderVisible(){
     sched = 0;
@@ -1586,7 +1629,9 @@ const VG = (function(){
     schedule();
   });
   return {
-    reset(n){ count = n; for (const el of tileEls.values()) dropThumb(el); tileEls.clear(); queue.length = 0; grid.innerHTML = ''; measure(); renderVisible(); },
+    reset(n){ count = n; clearThumbCache(); for (const el of tileEls.values()) dropThumb(el); tileEls.clear(); queue.length = 0; grid.innerHTML = ''; measure(); renderVisible(); },
+    // a rasteriser slot freed up: keep filling queued tiles
+    kick(){ if (queue.length && !raf) raf = requestAnimationFrame(pump); },
     // pieces generated so far (chunked generation grows the grid as it goes)
     grow(n){ count = n; measure(); schedule(); }
   };
