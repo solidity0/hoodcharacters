@@ -51,10 +51,10 @@ function pickOneOfOneBgColor(rng) {
 // ---------- trait pools ----------
 const TRAITS = {
   skinTone: [
-    { id: 'tan',      weight: 30, hex: '#c89468', rarity: 'common' },
+    { id: 'white',    weight: 30, hex: '#ffffff', rarity: 'common' },
     { id: 'brown',    weight: 26, hex: '#8a5a3a', rarity: 'common' },
     { id: 'pale',     weight: 22, hex: '#f5e8dc', rarity: 'uncommon' },
-    { id: 'light',    weight: 16, hex: '#e8c8a0', rarity: 'uncommon' },
+    { id: 'gray',     weight: 16, hex: '#9a9a9a', rarity: 'uncommon' },
     { id: 'onyx',     weight: 6,  hex: '#1a1a1a', rarity: 'rare' },
     { id: 'red',      weight: 11, hex: '#cc3f3f', rarity: 'rare' }, // weight 11 of total 122 ≈ 9% at tier 'any'
     { id: 'blue',     weight: 11, hex: '#3f6fcc', rarity: 'rare' }  // same treatment as red, ≈ 9% at tier 'any'
@@ -196,9 +196,9 @@ const ONE_OF_ONE_SKIN_TONE_WEIGHTS = [
   { id: 'red',   weight: 20 },
   { id: 'blue',  weight: 20 },
   { id: 'pale',  weight: 16 },
-  { id: 'light', weight: 16 },
+  { id: 'gray',  weight: 16 },
   { id: 'brown', weight: 16 },
-  { id: 'tan',   weight: 14 }
+  { id: 'white', weight: 14 }
 ];
 function pickOneOfOneSkinTone(rng) {
   const total = ONE_OF_ONE_SKIN_TONE_WEIGHTS.reduce((s,w)=>s+w.weight,0);
@@ -866,7 +866,7 @@ ${blinkAnim}
 ${sun}
 ${drawVignette()}
 </svg>`;
-  return svg.replace(/#[0-9a-fA-F]{6}\b/g, (h) => UNGRADED.has(h.toLowerCase()) ? h : warmGrade(h));
+  return svg.replace(/#[0-9a-fA-F]{6}\b/g, (h) => (UNGRADED.has(h.toLowerCase()) || isNeutral(h)) ? h : warmGrade(h));
 }
 
 // ---------- color grade ----------
@@ -876,6 +876,9 @@ ${drawVignette()}
 // Colours supplied as exact swatches keep their true value (the grade would
 // push #d0fa05 to #d9ff00); tones derived from them are still graded.
 const UNGRADED = new Set(['#d0fa05']);
+// Exact neutral greys (r = g = b) also skip the grade, so the white and gray
+// skin tones — and their shading — stay truly white/gray instead of cream/beige.
+function isNeutral(h) { const v = h.slice(1).toLowerCase(); return v.slice(0, 2) === v.slice(2, 4) && v.slice(2, 4) === v.slice(4, 6); }
 const _gradeCache = new Map();
 function warmGrade(hex) {
   const key = hex.toLowerCase();
